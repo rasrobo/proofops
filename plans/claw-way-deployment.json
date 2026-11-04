@@ -1,0 +1,48 @@
+{
+  "name": "claw-way-django deployment readiness",
+  "target_kind": "production-readonly",
+  "notes": "Read-only GETs against a readiness endpoint. No mutations, no auth, no customer data. Safe to run against production because every check is a GET whose only effect is reading a status document.",
+  "allowed_origins": ["https://hub.sqs.chat"],
+  "checks": [
+    {
+      "id": "health-reachable",
+      "type": "http_status",
+      "path": "/health",
+      "expect": 200,
+      "proves": "the readiness endpoint answers 200"
+    },
+    {
+      "id": "health-reports-ok",
+      "type": "http_json_field",
+      "path": "/health",
+      "field": "status",
+      "equals": "ok",
+      "proves": "the application itself reports status=ok, not merely a proxy answering"
+    },
+    {
+      "id": "health-reports-django-backend",
+      "type": "http_json_field",
+      "path": "/health",
+      "field": "backend",
+      "equals": "django",
+      "proves": "the responding process is the Django app, not a static fallback or a sibling service"
+    },
+    {
+      "id": "health-reports-database",
+      "type": "http_json_field",
+      "path": "/health",
+      "field": "database",
+      "equals": "postgresql",
+      "proves": "the readiness document asserts a database backend of postgresql"
+    }
+  ],
+  "does_not_prove": [
+    "that the readiness check actually queries the database — the field is self-reported",
+    "that migrations have run, or that they ran for this release",
+    "that background workers, queues or cron are alive",
+    "that the deployed image corresponds to any particular git revision",
+    "that a customer-facing page renders the new build",
+    "that provisioning, billing or authentication work",
+    "that TLS, DNS or the reverse proxy in front of the app are configured correctly"
+  ]
+}

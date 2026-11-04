@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proofops"
+version = "0.1.0"
+description = "Independent verification of agent completion claims"
+requires-python = ">=3.10"
+
+[project.scripts]
+proofops = "proofops.cli:main"
+
+[tool.setuptools]
+packages = ["proofops"]
