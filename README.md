@@ -1,5 +1,7 @@
 # ProofOps
 
+**For a non-technical overview, read [`docs/EXECUTIVE-SUMMARY.md`](docs/EXECUTIVE-SUMMARY.md).**
+
 **Agents say "done". ProofOps checks whether that is true.**
 
 ProofOps runs a declared plan of read-only checks against a target and writes a
