@@ -1,0 +1,23 @@
+{
+  "name": "claw-way-django rebuilt schema matches production (structural)",
+  "target_kind": "local-test-db",
+  "notes": "Compares columns (name, type, length, nullability, default), index definitions and constraint names between a freshly-built database and production. THIS PLAN CURRENTLY FAILS with 39 differences — see README. It is kept failing on purpose: it is the evidence that a table-count check is not schema equivalence.",
+  "allowed_origins": [],
+  "allowed_commands": ["ssh -o BatchMode=yes beeze@107.175.155.199 bash /home/beeze/schema_drift.sh"],
+  "checks": [
+    {
+      "id": "no-structural-drift",
+      "type": "command_exit",
+      "command": "ssh -o BatchMode=yes beeze@107.175.155.199 bash /home/beeze/schema_drift.sh",
+      "expect_exit": 0,
+      "stdout_contains": "schema drift: 0",
+      "timeout": 600,
+      "proves": "every table matches production in columns, indexes and constraints — not merely in name"
+    }
+  ],
+  "does_not_prove": [
+    "that data is equivalent — this compares structure only",
+    "that the production schema is itself correct, only that the rebuild matches it",
+    "that application behaviour is identical; a matching schema can still hold wrong data"
+  ]
+}
