@@ -38,6 +38,10 @@ def build(plan: dict, target: str, results: list[dict]) -> dict:
         "run_id": new_run_id(),
         "plan": plan["name"],
         "plan_revision": plan["_revision"],
+        # The full plan body travels with the receipt, so the evidence is self-contained:
+        # you can read exactly which assertions produced this verdict, and re-run them,
+        # without needing the file that happened to sit on disk at the time.
+        "plan_body": {k: v for k, v in plan.items() if not k.startswith("_")},
         "plan_file": plan["_path"],
         "target": target,
         "target_kind": plan["target_kind"],
