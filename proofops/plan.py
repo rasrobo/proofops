@@ -41,14 +41,26 @@ def load(path: str | pathlib.Path) -> dict:
 
     if not isinstance(plan["checks"], list) or not plan["checks"]:
         raise PlanError("plan declares no checks")
-    if not isinstance(plan["allowed_origins"], list) or not plan["allowed_origins"]:
-        raise PlanError("plan must declare allowed_origins")
+    if not isinstance(plan["allowed_origins"], list):
+        raise PlanError("allowed_origins must be a list")
+    # A command-only plan contacts nothing, so an empty allowlist is legitimate there;
+    # a plan with HTTP checks must name the origins it will reach.
+    has_http = any(c.get("type", "").startswith("http_") for c in plan["checks"])
+    if has_http and not plan["allowed_origins"]:
+        raise PlanError("plan has HTTP checks but declares no allowed_origins")
 
     for c in plan["checks"]:
         if "type" not in c or "id" not in c:
             raise PlanError(f"check needs 'id' and 'type': {c}")
         if "proves" not in c:
             raise PlanError(f"check '{c['id']}' must state what it proves")
+        if c["type"] == "command_exit":
+            declared = plan.get("allowed_commands") or []
+            if c.get("command") not in declared:
+                raise PlanError(
+                    f"check '{c['id']}' runs a command not listed in allowed_commands: "
+                    f"{c.get('command')!r}"
+                )
 
     plan["_path"] = str(p)
     plan["_revision"] = revision(plan)

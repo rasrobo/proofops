@@ -14,6 +14,7 @@ import pathlib
 import sys
 
 from . import checks as checks_mod
+from . import commands as commands_mod
 from . import plan as plan_mod
 from . import receipt as receipt_mod
 
@@ -21,10 +22,16 @@ from . import receipt as receipt_mod
 def cmd_run(args) -> int:
     try:
         plan = plan_mod.load(args.plan)
-        plan_mod.check_origin(plan, args.target)
+        if any(c.get("type", "").startswith("http_") for c in plan["checks"]):
+            plan_mod.check_origin(plan, args.target)
     except plan_mod.PlanError as e:
         print(f"refused: {e}", file=sys.stderr)
         return 2
+
+    commands_mod.set_policy(commands_mod.CommandPolicy(
+        enabled=bool(args.allow_commands),
+        allowed=tuple(plan.get("allowed_commands") or ()),
+    ))
 
     results = []
     for spec in plan["checks"]:
@@ -79,6 +86,8 @@ def main(argv=None) -> int:
     r.add_argument("plan")
     r.add_argument("--target", required=True)
     r.add_argument("--out", default="receipts")
+    r.add_argument("--allow-commands", action="store_true",
+                   help="permit checks to run commands the plan declares in allowed_commands")
     r.set_defaults(fn=cmd_run)
 
     s = sub.add_parser("show", help="re-print a saved receipt")

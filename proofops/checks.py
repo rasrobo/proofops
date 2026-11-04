@@ -130,7 +130,10 @@ def http_header_equals(spec: dict, target: str) -> tuple[bool, dict]:
     }
 
 
+from . import commands  # noqa: E402  (registered below)
+
 REGISTRY = {
+    "command_exit": commands.command_exit,
     "http_status": http_status,
     "http_json_field": http_json_field,
     "http_body_contains": http_body_contains,

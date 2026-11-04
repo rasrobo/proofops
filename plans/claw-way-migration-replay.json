@@ -1,0 +1,32 @@
+{
+  "name": "claw-way-django builds from migrations (fresh database)",
+  "target_kind": "local-test-db",
+  "notes": "Drops and rebuilds the designated test database from the migration graph, then compares to production. Safe: test_sqs_test_db is the sanctioned throwaway, and the script re-verifies production history afterwards.",
+  "allowed_origins": [],
+  "allowed_commands": ["ssh -o BatchMode=yes beeze@107.175.155.199 bash /home/beeze/replay_isolated.sh"],
+  "checks": [
+    {
+      "id": "replay-exit",
+      "type": "command_exit",
+      "command": "ssh -o BatchMode=yes beeze@107.175.155.199 bash /home/beeze/replay_isolated.sh",
+      "expect_exit": 0,
+      "timeout": 600,
+      "proves": "a fresh database was built from the migration graph without error"
+    },
+    {
+      "id": "replay-prod-untouched",
+      "type": "command_exit",
+      "command": "ssh -o BatchMode=yes beeze@107.175.155.199 bash /home/beeze/replay_isolated.sh",
+      "expect_exit": 0,
+      "stdout_contains": "prod legacy rows: 0",
+      "timeout": 600,
+      "proves": "the replay left production's migration history unchanged"
+    }
+  ],
+  "does_not_prove": [
+    "that the rebuilt schema contains the same columns, indexes or constraints as production — only the table count is compared",
+    "that the application works against that schema (the test suite is separate)",
+    "that production itself is migrated or healthy",
+    "anything about data restore: this builds empty tables, it does not restore a dump"
+  ]
+}

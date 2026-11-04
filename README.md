@@ -131,3 +131,36 @@ Identical revisions: the plan was not weakened between runs.
 First vertical slice: plan loading, four check types, receipt writing, allowlist
 enforcement, CLI. Deliberately not yet built — approval-gated command checks, authenticated
 HTTP, artifact/file assertions, plan composition, and any UI.
+
+## Command checks — fenced twice
+
+Some claims cannot be verified with a GET: "the migration graph builds a database",
+"the deployed configuration validates". `command_exit` covers those, and is the only
+place ProofOps can cause a side effect, so two independent gates must both open:
+
+1. the plan lists the command **verbatim** in `allowed_commands`
+2. the operator passes `--allow-commands`
+
+Neither alone is enough. A plan copied from elsewhere executes nothing; a careless flag
+cannot run what the plan never declared. There is no shell — argv is split with `shlex`,
+so `&&`, pipes and redirection are not available to a plan.
+
+```
+refused: check 'django-check-exit' runs a command not listed in allowed_commands: 'ssh …'
+refused: commands are disabled for this run (pass --allow-commands)
+```
+
+Identical commands run **once per plan run** and are cached, so two checks asserting
+different things about a 90-second replay cost 90 seconds, not 180. The receipt records
+`reused_from_cache: true` on the second check rather than hiding the reuse.
+
+### Two command plans, both executed
+
+| plan | target | run | verdict |
+|---|---|---|---|
+| deployed configuration is valid | hub container | `PO-20261104T232221Z-67bf` | PASS 2/2 |
+| builds from migrations (fresh DB) | test database | `PO-20261104T232710Z-8e21` | PASS 2/2 (1:29) |
+
+The migration plan is the one worth watching: it drops and rebuilds the designated test
+database from the migration graph and asserts production's history is untouched. It
+replaced a suite that previously produced **241 errors**.

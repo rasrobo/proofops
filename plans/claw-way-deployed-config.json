@@ -1,0 +1,35 @@
+{
+  "name": "claw-way-django deployed configuration is valid",
+  "target_kind": "production-readonly",
+  "notes": "Runs the deployed app's own configuration check inside its container. Read-only: `manage.py check` validates settings and the model graph without touching data.",
+  "allowed_origins": [],
+  "allowed_commands": [
+    "ssh -o BatchMode=yes beeze@107.175.155.199 docker exec claw-way-django-web-1 python3 manage.py check"
+  ],
+  "checks": [
+    {
+      "id": "django-check-exit",
+      "type": "command_exit",
+      "command": "ssh -o BatchMode=yes beeze@107.175.155.199 docker exec claw-way-django-web-1 python3 manage.py check",
+      "expect_exit": 0,
+      "timeout": 60,
+      "proves": "the DEPLOYED container's Django settings and model graph validate without errors"
+    },
+    {
+      "id": "django-check-reports-no-issues",
+      "type": "command_exit",
+      "command": "ssh -o BatchMode=yes beeze@107.175.155.199 docker exec claw-way-django-web-1 python3 manage.py check",
+      "expect_exit": 0,
+      "stdout_contains": "System check identified no issues",
+      "timeout": 60,
+      "proves": "the check actually ran and reported clean, rather than exiting 0 silently"
+    }
+  ],
+  "does_not_prove": [
+    "that the deployed code matches any git revision — only that what is running validates",
+    "that migrations are applied or that the database schema matches the model graph",
+    "that the service answers requests (a valid config can still be behind a dead proxy)",
+    "that background workers, queues or cron are healthy",
+    "that any business workflow (provisioning, billing, auth) works"
+  ]
+}
