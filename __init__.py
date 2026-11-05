@@ -1,8 +1,12 @@
 """proofops — make Hermes verify its own "done" before it says it.
 
-Three tools and one skill. The engine is the same code `python3 -m proofops` runs; this
-plugin adds no check types, cannot repair anything, and cannot widen a plan's allowlist.
-Its only job is to put a receipt between an agent and the word "done".
+Four tools and one skill. The fourth, ``proofops_verify``, answers a question the other
+three cannot: *is this receipt still the one that was written?* A receipt that can be
+edited after the fact is not evidence, so verification of the evidence ships with it.
+
+The engine is the same code `python3 -m proofops` runs; this plugin adds no check types,
+cannot repair anything, and cannot widen a plan's allowlist. Its only job is to put a
+receipt between an agent and the word "done".
 
 Read-only: the only network verb in the engine is GET. The one side effect available is a
 command a plan declares verbatim in `allowed_commands` **and** the operator opts into per
@@ -43,6 +47,29 @@ def _sub(name: str):
     return importlib.import_module(f"{_ENGINE_NAME}.{name}")
 
 
+def _default_plans_dir() -> pathlib.Path:
+    """Where to look for plans when the caller names none.
+
+    A catalogue install has no ``./plans`` — the user's working directory is whatever they
+    were doing. Defaulting to the plugin's own directory means the first call shows the
+    shipped plans instead of an error, and a plan can be named rather than pathed.
+    """
+    cwd_plans = pathlib.Path("plans").expanduser()
+    return cwd_plans if cwd_plans.is_dir() else _HERE / "plans"
+
+
+def _resolve_plan(value) -> pathlib.Path:
+    """Accept a path, a bare filename, or a plan name shipped with the plugin."""
+    p = pathlib.Path(str(value)).expanduser()
+    if p.exists():
+        return p
+    for candidate in (p.with_suffix(".json"), _default_plans_dir() / p.name,
+                      _default_plans_dir() / f"{p.stem}.json"):
+        if candidate.exists():
+            return candidate
+    return p
+
+
 def _receipt_dir() -> pathlib.Path:
     home = pathlib.Path(os.environ.get("HERMES_HOME") or "~/.hermes").expanduser()
     d = home / "proofops" / "receipts"
@@ -56,7 +83,7 @@ def _mark(passed) -> str:
 
 def _plans(args: dict, **_kw) -> str:
     """List the plans in a directory, with the revision each one is pinned to."""
-    d = pathlib.Path(args.get("plans_dir") or "plans").expanduser()
+    d = pathlib.Path(args.get("plans_dir") or _default_plans_dir()).expanduser()
     if not d.is_dir():
         return json.dumps({"error": f"no plans directory at {d}",
                            "hint": "pass plans_dir, or run from a repo that has plans/*.json"})
@@ -89,7 +116,7 @@ def _run(args: dict, **_kw) -> str:
     plan_mod = _sub("plan")
     try:
         rec, path = runner.execute(
-            str(plan_path), str(target),
+            str(_resolve_plan(plan_path)), str(target),
             allow_commands=bool(args.get("allow_commands")), out=str(out))
     except plan_mod.PlanError as e:
         # A refused plan is not a failed check: say plainly that nothing was tested.
@@ -144,6 +171,38 @@ def _receipt(args: dict, **_kw) -> str:
                    for c in rec["checks"]],
         "does_not_prove": rec["does_not_prove"],
         "summary_text": _sub("receipt").summarise(rec),
+    }, indent=2)
+
+
+def _verify(args: dict, **_kw) -> str:
+    """Check a stored receipt against its seal: 0-verdict, not a claim about the system."""
+    ref = args.get("receipt")
+    if not ref:
+        return json.dumps({"error": "'receipt' (a run id or path) is required"})
+    p = pathlib.Path(ref).expanduser()
+    if not p.exists():
+        p = _receipt_dir() / f"{ref}.json"
+    if not p.exists():
+        return json.dumps({"error": f"no receipt at {ref} or {p}"})
+    try:
+        rec = json.loads(p.read_text())
+    except json.JSONDecodeError as e:
+        return json.dumps({"verdict": "unreadable", "error": str(e)})
+
+    integrity_mod = _sub("integrity")
+    verdict, detail = integrity_mod.verify(rec, integrity_mod.key_from(args.get("key_file")))
+    return json.dumps({
+        "receipt": str(p),
+        "run_id": rec.get("run_id"),
+        "plan": rec.get("plan"),
+        "plan_revision": rec.get("plan_revision"),
+        "recorded_verdict": rec.get("summary", {}).get("verdict"),
+        "integrity": verdict,
+        "detail": detail,
+        "does_not_prove": [
+            "that the checks were run honestly, or that the plan was adequate",
+            "that the observer is truthful — a sealed receipt can still report a bad plan",
+        ] + ([] if verdict == "valid" else ["that the file is unmodified"]),
     }, indent=2)
 
 
@@ -202,6 +261,25 @@ _TOOLS = (
             "additionalProperties": False,
         },
     }, _receipt),
+    ("proofops_verify", {
+        "name": "proofops_verify",
+        "description": ("Check that a stored receipt still matches its seal — that nobody "
+                        "edited the verdict, the evidence or the limitations after it was "
+                        "written. Returns valid / tampered / unsealed / needs-key. Seal "
+                        "validity is not correctness: it proves the file is unchanged, not "
+                        "that the checks were honest or adequate."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "receipt": {"type": "string", "description": "Run id (PO-…) or a file path."},
+                "key_file": {"type": "string",
+                             "description": ("Path to the signing key, for a signed receipt "
+                                             "(or set PROOPS_SIGNING_KEY).")},
+            },
+            "required": ["receipt"],
+            "additionalProperties": False,
+        },
+    }, _verify),
 )
 
 

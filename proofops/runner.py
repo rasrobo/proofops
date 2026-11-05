@@ -24,6 +24,7 @@ def execute(
     *,
     allow_commands: bool = False,
     out: str = "receipts",
+    key: str | None = None,
 ) -> tuple[dict, str]:
     """Run every check in the plan. Returns (receipt, path the receipt was written to)."""
     plan = plan_mod.load(plan_path)
@@ -55,6 +56,6 @@ def execute(
             "proves": spec["proves"], "started_at": started, "evidence": evidence,
         })
 
-    rec = receipt_mod.build(plan, target, results)
+    rec = receipt_mod.build(plan, target, results, key=key)
     path = receipt_mod.write(rec, out)
     return rec, str(path)

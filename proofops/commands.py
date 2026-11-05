@@ -14,6 +14,7 @@ redirection are not available to a plan.
 
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 import time
@@ -54,6 +55,41 @@ def set_policy(policy: CommandPolicy) -> None:
     _RESULTS = {}
 
 
+def _extract(spec: dict, text: str, evidence: dict) -> dict:
+    """Pull a declared value out of the output as readable evidence.
+
+    A failing check whose evidence is a 4,000-character truncated tail makes the reader
+    re-run the command to learn how bad the failure is. ``extract`` names the number the
+    receipt should show — ``schema drift: 39`` rather than "exit 1".
+
+    Extraction is enrichment, never an assertion: a pattern that does not match records
+    ``extract_error`` and leaves the check's pass/fail verdict untouched. Silently
+    inventing a value, or failing a check because a log line changed, would both be lies
+    about what was tested.
+    """
+    ex = spec.get("extract")
+    if not ex:
+        return evidence
+    # One extract block or a list of them: a drift report carries both the count and the
+    # table total, and a receipt should show both without a second 35-second run.
+    items = ex if isinstance(ex, list) else [ex]
+    out = dict(evidence)
+    values: dict[str, str | None] = {}
+    errors: list[str] = []
+    for item in items:
+        name = item.get("name", "value")
+        pattern = item["regex"]
+        group = int(item.get("group", 1))
+        match = re.search(pattern, text, re.MULTILINE)
+        values[name] = match.group(group) if match else None
+        if match is None:
+            errors.append(f"{name}: pattern not found in output: {pattern!r}")
+    out["extracted"] = values
+    if errors:
+        out["extract_error"] = "; ".join(errors)
+    return out
+
+
 def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
     command = spec["command"]
     # Two checks may assert different things about the same command. Run it once and
@@ -61,14 +97,19 @@ def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
     # replay should not execute twice because it is asserted twice.
     cached = _RESULTS.get(command)
     if cached is not None:
-        ok_all, evidence = cached
+        ok_all, cached_evidence = cached
+        # Extraction is per-check, so it must not ride along from whichever check happened
+        # to run the command first.
+        evidence = {k: v for k, v in cached_evidence.items()
+                    if k not in ("extracted", "extract_error")}
         ok = ok_all
         if "stdout_contains" in spec:
-            ok = ok and spec["stdout_contains"] in evidence["stdout_tail"]
-        return ok, {**evidence, "reused_from_cache": True,
-                    **({"expected_stdout_contains": spec["stdout_contains"],
-                        "stdout_contained": spec["stdout_contains"] in evidence["stdout_tail"]}
-                       if "stdout_contains" in spec else {})}
+            contained = spec["stdout_contains"] in evidence["stdout_tail"]
+            ok = ok and contained
+            evidence["expected_stdout_contains"] = spec["stdout_contains"]
+            evidence["stdout_contained"] = contained
+        evidence["reused_from_cache"] = True
+        return ok, _extract(spec, evidence["stdout_tail"], evidence)
 
     permitted, why = POLICY.permits(command)
     if not permitted:
@@ -110,5 +151,5 @@ def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
         evidence["expected_stdout_contains"] = spec["stdout_contains"]
         evidence["stdout_contained"] = spec["stdout_contains"] in stdout
     # Cache the exit-level verdict; per-check stdout assertions are re-evaluated above.
-    _RESULTS[command] = (code == want_code and not timed_out, evidence)
-    return ok, evidence
+    _RESULTS[command] = (code == want_code and not timed_out, dict(evidence))
+    return ok, _extract(spec, stdout + "\n" + stderr, evidence)

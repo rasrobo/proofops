@@ -1,7 +1,7 @@
 # ProofOps — executive summary
 
 **One line:** ProofOps is an independent inspector for AI work. When an AI agent says
-"done", ProofOps checks whether that is true — and hands you a signed record of what it
+"done", ProofOps checks whether that is true — and hands you a sealed record of what it
 verified and what it did not.
 
 ---
@@ -43,9 +43,30 @@ Three principles are enforced in the software, not just promised in a document:
    refused before anything happens.
 2. **A receipt can never say "everything works".** Every plan must state its limitations
    up front, or it will not load.
-3. **The inspection cannot be quietly weakened to get a pass.** Each run is stamped with
-   a fingerprint of the exact checks used. Changing a check changes the fingerprint, so a
+3. **The inspection cannot be quietly weakened to get a pass.** Each run is stamped with a
+   fingerprint of the exact checks used. Changing a check changes the fingerprint, so a
    weaker test can never masquerade as the original.
+
+A fourth property is what makes a receipt usable as evidence at all: **it cannot be edited
+after the fact without that being detectable.** Every receipt is sealed with a hash, and can
+be signed with a key, so a reader can check it themselves in one command:
+
+```
+$ python3 -m proofops verify receipts/PO-20261105T164723Z-b71b.json
+receipts/PO-20261105T164723Z-b71b.json: valid
+  digest matches - the file has not been edited since it was sealed. It is NOT signed:
+  anyone who rewrites the body could also rewrite the digest.
+  What this does NOT prove: that the checks were run honestly, that the plan was
+  adequate, or that the observer is truthful. It proves the file is unchanged.
+```
+
+The tool states its own limit on the face of the output. Configure a signing key
+(`--key-file` or `PROOPS_SIGNING_KEY`) and the same command checks an HMAC-SHA256
+signature instead, so a second party can prove *which* key sealed the record.
+
+Editing a verdict, an observed value, or the list of limitations breaks the seal. A receipt
+also records which build of the inspector produced it, so "verified" is attributable rather
+than anonymous.
 
 ---
 
@@ -108,8 +129,9 @@ than none, because it buys false confidence.
 
 ## Status
 
-Working software, five inspection plans, nine receipts from real systems, and its own
-suite of 26 automated tests. Development so far has been applied to our live SaaS platform: deployments,
+Working software: five inspection plans, a receipt for every run (18 at the time of
+writing, three of them fixture runs from the demonstration), and its own suite of 50
+automated tests. Development so far has been applied to our live SaaS platform: deployments,
 configuration, database rebuilds and schema fidelity.
 
 The immediate next step is extending coverage to the workflows where a premature "done"

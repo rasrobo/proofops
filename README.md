@@ -30,6 +30,7 @@ No dependencies beyond the Python standard library.
 ```bash
 python3 -m proofops list --plans plans
 python3 -m proofops run plans/claw-way-deployment.json --target https://app.example.com
+python3 -m proofops verify receipts/PO-....json      # is this receipt still the one that was written?
 python3 -m proofops show receipts/PO-....json
 ```
 
@@ -39,7 +40,7 @@ A caller that ignores the output can still trust the exit code.
 
 ## Use it as a Hermes plugin
 
-The repository root is a loadable Hermes plugin (`plugin.yaml` + `__init__.py`): three
+The repository root is a loadable Hermes plugin (`plugin.yaml` + `__init__.py`): four
 tools and one skill, no dependencies.
 
 ```bash
@@ -53,6 +54,7 @@ hermes plugins validate ~/.hermes/plugins/proofops           # the catalog CI ga
 | `proofops_plans` | list the plans available, with the revision and the limitations each declares |
 | `proofops_run` | run one plan, return the receipt's substance and its `does_not_prove` list |
 | `proofops_receipt` | re-print a stored receipt by run id |
+| `proofops_verify` | check a stored receipt against its seal: `valid`, `tampered`, `unsealed` or `needs-key` |
 
 The bundled `verify-before-done` skill tells the agent when to reach for them: before it
 writes "done", "deployed", "fixed" or "everything works". The plugin adds no check types
@@ -82,7 +84,20 @@ tools matching registrations, security scan, and no-core-override.
 ```
 
 Supported check types: `http_status`, `http_json_field` (`equals` or `contains`),
-`http_body_contains`, `http_header`.
+`http_body_contains`, `http_header`, and `command_exit` (fenced twice — see below).
+
+A `command_exit` check may also carry `extract`, naming the value the receipt should show
+rather than leaving the reader to re-run a 35-second command to find out how bad it is:
+
+```json
+"extract": [
+  {"name": "drift_count", "regex": "schema drift: (\\d+)"},
+  {"name": "tables_compared", "regex": "tables compared: (\\d+) \\(prod\\)"}
+]
+```
+
+A pattern that does not match records `extract_error` and leaves the verdict alone:
+extraction is evidence, never an assertion.
 
 Every check must state `proves`. Every plan must state `does_not_prove`. A plan missing
 either is rejected — a green tick is not a claim of correctness.
@@ -110,6 +125,24 @@ environment and do not belong in a public repository.
 Each receipt records the plan revision (`sha256` of the plan body), so two receipts can be
 proven to come from **the same** plan. That is what makes a before/after comparison
 honest: weakening an assertion changes the revision.
+
+Every receipt is **sealed**: a `sha256` digest of the whole body, so editing a verdict, an
+observed value or a limitation after the fact is detectable. Supply a key
+(`--key-file`, or `PROOPS_SIGNING_KEY`) and it is also signed (`hmac-sha256`), which is what
+lets a second party prove *which* key produced it:
+
+```bash
+python3 -m proofops verify receipts/PO-....json           # valid / tampered / unsealed / needs-key
+```
+
+Verification exit codes: `0` valid · `1` edited, or signed by a different key · `2` cannot
+verify (unsealed, or signed and no key supplied). What sealing does **not** prove is stated
+by the verify command itself: that the checks were honest, that the plan was adequate, or
+that the observer is truthful. It proves the file is unchanged — nothing more.
+
+A receipt also names the inspector that produced it: `environment.commit` (the ProofOps
+build), host, Python and working directory. A certificate without the inspector's identity
+is not evidence.
 
 ```
 run_id            PO-20261104T231903Z-ff6b
@@ -179,9 +212,9 @@ Identical revisions: the plan was not weakened between runs.
 
 ## Status
 
-Loadable Hermes plugin (3 tools + 1 bundled skill, `hermes plugins validate` clean) over a
-stdlib-only engine: 5 plans, Plan loading, four check types, command checks fenced twice,
-receipts, allowlist enforcement, CLI. 29 tests. Deliberately not built: authenticated HTTP
+Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
+stdlib-only engine: 5 plans, plan loading, five check types, command checks fenced twice,
+sealed and optionally signed receipts, allowlist enforcement, CLI. 50 tests. Deliberately not built: authenticated HTTP
 and browser flows, artifact/file assertions, plan composition, and any UI.
 
 ## Command checks — fenced twice

@@ -32,7 +32,11 @@ reads it.
      plan file**; a changed plan is a new revision and the before/after is no longer a
      comparison.
    - `INCOMPLETE` — nothing may be claimed. Say what could not be run and why.
-4. **Quote the receipt.** Use `report_line`, or:
+4. **Check the seal before quoting it.** `proofops_verify(receipt="PO-…")`. If it returns
+   `tampered`, the file was edited after it was written — quote nothing from it and re-run
+   the plan. `valid` means only that the file is unchanged; it does **not** mean the checks
+   were adequate or honest, and the tool prints that limit itself.
+5. **Quote the receipt.** Use `report_line`, or:
 
    ```
    ProofOps run <run_id> passed: <the checks that passed>.
@@ -45,6 +49,8 @@ reads it.
   result, not a disclaimer to drop.
 - Never widen a plan's `allowed_origins` or `allowed_commands` to make a run go green.
 - Never describe a `NOT RUN` check as passed, or a refused check as failed.
+- Never quote a receipt whose seal does not verify, and never present "sealed" as "true":
+  sealing proves the file is unchanged, not that the inspection was adequate.
 - ProofOps verifies; it never repairs. Do the repair with ordinary tools, then re-run.
 - If no plan covers the outcome, say so plainly — "no verification exists for this claim"
   is an honest answer, and a stronger one than an unverified success message.

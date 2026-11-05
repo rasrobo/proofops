@@ -9,12 +9,36 @@ public repository.
 from __future__ import annotations
 
 import datetime
+import functools
 import json
 import pathlib
 import platform
 import secrets
+import subprocess
+
+from . import __version__
+from . import integrity
 
 SCHEMA = "proofops.receipt/1"
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+@functools.lru_cache(maxsize=1)
+def _commit() -> str:
+    """Which build of the inspector produced this evidence.
+
+    Best effort and never fatal: an installed package may have no git metadata, and a
+    receipt with ``commit: unknown`` is still better than one that claims a version it
+    cannot substantiate.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "--short=12", "HEAD"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        return out.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
 
 
 def new_run_id() -> str:
@@ -31,7 +55,7 @@ def write(receipt: dict, out_dir: str | pathlib.Path = "receipts") -> pathlib.Pa
     return path
 
 
-def build(plan: dict, target: str, results: list[dict]) -> dict:
+def build(plan: dict, target: str, results: list[dict], key: str | None = None) -> dict:
     # Three outcomes, not two. ``passed`` is True / False / None, where None means the
     # check could not be performed (a command the operator never authorised). Counting a
     # refusal as a failure would let a receipt assert that something was tested and broke
@@ -47,7 +71,7 @@ def build(plan: dict, target: str, results: list[dict]) -> dict:
         verdict = "INCOMPLETE"
     else:
         verdict = "PASS"
-    return {
+    rec = {
         "schema": SCHEMA,
         "run_id": new_run_id(),
         "plan": plan["name"],
@@ -72,12 +96,19 @@ def build(plan: dict, target: str, results: list[dict]) -> dict:
         # Copied into every receipt on purpose: the limitations travel with the evidence,
         # so a receipt can never be quoted as "everything works".
         "does_not_prove": plan["does_not_prove"],
+        # A certificate without the inspector's identity is not evidence: which build ran,
+        # on which host, and from which working directory all change what a reader should
+        # conclude. `commit` comes from git and degrades to "unknown" rather than lying.
         "environment": {
-            "proofops": "0.1.0",
+            "proofops": __version__,
+            "commit": _commit(),
+            "host": platform.node(),
             "python": platform.python_version(),
             "platform": platform.system(),
+            "cwd": str(pathlib.Path.cwd()),
         },
     }
+    return integrity.seal(rec, key)
 
 
 def summarise(receipt: dict) -> str:
@@ -86,12 +117,23 @@ def summarise(receipt: dict) -> str:
         f"  plan      {receipt['plan']} ({receipt['plan_revision']})",
         f"  target    {receipt['target']} [{receipt['target_kind']}]",
     ]
+    block = receipt.get("integrity") or {}
+    if block:
+        sealed = f"  sealed    {block.get('digest', '?')}"
+        if block.get("signed"):
+            sealed += f"  signed key {block.get('key_id', '?')}"
+        lines.append(sealed)
     for c in receipt["checks"]:
         mark = {True: "PASS", False: "FAIL", None: "NOT RUN"}[c["passed"]]
         lines.append(f"  [{mark}] {c['id']}: {c['proves']}")
         detail = c["evidence"]
+        # The number that matters, before the raw evidence: a FAIL that only says "exit 1"
+        # makes the reader go and re-run the command to find out how bad it is.
+        extracted = detail.get("extracted") or {}
+        if extracted:
+            lines.append("         extracted: " + ", ".join(f"{k}={v}" for k, v in extracted.items()))
         if c["passed"] is not True:
-            lines.append(f"         observed: {json.dumps(detail)[:300]}")
+            lines.append(f"         observed: {json.dumps(detail)[:240]}")
     lines.append("  Not verified:")
     for item in receipt["does_not_prove"]:
         lines.append(f"    - {item}")

@@ -38,6 +38,20 @@ reproduction, and no production dependency.
 | `PO-20261104T232221Z-67bf` | deployed configuration | PASS 2/2 |
 | `PO-20261104T232528Z-1586` | migration replay | PASS 2/2 |
 | `PO-20261104T232710Z-8e21` | migration replay (cache) | PASS 2/2, 1:29 |
+| `PO-20261105T164330Z-2f2a` | deployment readiness (production, re-run) | PASS 4/4 |
+| `PO-20261105T164355Z-2408` | deployed configuration (re-run) | PASS 2/2 |
+| `PO-20261105T164431Z-f391` | schema drift (before `extract`) | FAIL 0/1 |
+| `PO-20261105T164715Z-b6b4` | schema drift (with `extract`) | FAIL 0/1 — `drift_count=39`, `tables_compared=181` |
+| `PO-20261105T164723Z-b71b` | readiness, sealed, verified | PASS 4/4 |
+| `PO-20261105T164728Z-5139` | readiness, signed (HMAC) | PASS 4/4 |
+| `PO-20261105T164337Z-287c` / `...f286` / `...ee0d` | demo: defect → repaired | FAIL 3/4 → PASS 4/4 → PASS 4/4, one revision |
+| `PO-20261105T165107Z-c882` | migration replay (re-run, sealed) | PASS 2/2 |
+
+Note on revisions: `claw-way-schema-drift.json` moved from `sha256:36f14d2bb9c4fd50` to
+`sha256:f4bca58123c4bf7a` because an `extract` block was **added** (evidence, not an
+assertion). The assertion `stdout_contains: "schema drift: 0"` is byte-identical in both, so
+the FAIL is not a weakened comparison — but the two revisions must not be quoted as
+equivalent, and they are not.
 
 ## 5. Failure → repair → pass
 
@@ -97,7 +111,8 @@ readiness document.
 | real failure → repair → pass, same revision | done |
 | gates that cannot be bypassed | done, counter-tested |
 | limitations stated per plan | done, enforced at load |
-| the tool's own tests | **done — 29 tests** |
+| the tool's own tests | **done — 50 tests** |
+| receipts cannot be edited undetected | **done — sealed sha256, optional HMAC, `verify` exits 0/1/2** |
 | receipts self-contained | done — plan body embedded |
 | project-local integration (`proofops/` in the target repo, AGENTS.md note) | **not done** |
 | authenticated / browser flows | **not attempted** — deliberately, see limitations |
@@ -111,13 +126,14 @@ receipt behind it, and one of those receipts contradicts an earlier claim of min
 ## 10. Plugin packaging
 
 The hackathon is a *plugin* hackathon, so the repository root is now a loadable Hermes
-plugin: `plugin.yaml` + `__init__.py`, no dependencies, three tools and one bundled skill.
+plugin: `plugin.yaml` + `__init__.py`, no dependencies, four tools and one bundled skill.
 
 | tool | purpose |
 |---|---|
 | `proofops_plans` | list the plans available, with revision and declared limitations |
 | `proofops_run` | run one plan; return the receipt's substance and `does_not_prove` |
 | `proofops_receipt` | re-print a stored receipt by run id |
+| `proofops_verify` | check a receipt against its seal (valid / tampered / unsealed / needs-key) |
 
 `skills/verify-before-done/SKILL.md` is registered with `ctx.register_skill`, so the agent
 is told to reach for a plan before it writes "done", "deployed", "fixed" or "everything
@@ -135,6 +151,25 @@ Validation passed.
 and by exercising the registered tools inside a real Hermes container: 5 plans listed, a
 fixture run `PASS 4/4`, a command plan without `allow_commands` correctly returning
 `INCOMPLETE` with both checks `NOT RUN`, and receipt lookup by run id.
+
+### The claim that was not true until 2026-11-05
+
+The executive summary described the product as handing over "a signed record". It did not:
+receipts were plain JSON, and an agent that wanted a green result could edit the verdict
+after the run and nothing would notice — the precise failure the tool exists to catch,
+committed by the tool itself, in its own marketing copy.
+
+Receipts are now sealed with a sha256 digest of the whole body (plan body, evidence,
+`does_not_prove` list included), optionally HMAC-SHA256 signed, and `proofops verify` is a
+first-class command and plugin tool. Counter-tested: editing `summary.verdict` in a written
+receipt returns `tampered` with both digests, exit 1; stripping the block returns `unsealed`;
+a signed receipt without the key returns `needs-key`, exit 2. The verify output states what
+sealing does not prove, because "sealed" is a weaker claim than "true".
+
+The same run found a second defect: a failing command check reported `exit 1` and a
+truncated output tail, so the schema-drift receipt said FAIL without saying **39**. Checks
+may now declare `extract` patterns, and that receipt reads `drift_count=39,
+tables_compared=181`.
 
 ### The defect this packaging exposed
 

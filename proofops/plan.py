@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pathlib
+import re
 from urllib.parse import urlparse
 
 REQUIRED = ("name", "target_kind", "allowed_origins", "checks", "does_not_prove")
@@ -54,6 +55,19 @@ def load(path: str | pathlib.Path) -> dict:
             raise PlanError(f"check needs 'id' and 'type': {c}")
         if "proves" not in c:
             raise PlanError(f"check '{c['id']}' must state what it proves")
+        ex = c.get("extract")
+        if ex is not None:
+            # Extraction feeds the receipt's headline evidence, so a broken pattern is a
+            # plan error at load time — never a silent blank in a judge-facing document.
+            for item in (ex if isinstance(ex, list) else [ex]):
+                if not isinstance(item, dict) or not item.get("name") or not item.get("regex"):
+                    raise PlanError(
+                        f"check '{c['id']}' has an extract block but no 'name' and 'regex'"
+                    )
+                try:
+                    re.compile(item["regex"])
+                except re.error as e:
+                    raise PlanError(f"check '{c['id']}' extract regex is invalid: {e}")
         if c["type"] == "command_exit":
             declared = plan.get("allowed_commands") or []
             if c.get("command") not in declared:
