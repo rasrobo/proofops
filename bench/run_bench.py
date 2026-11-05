@@ -76,12 +76,43 @@ def fetch_csv(offline: bool) -> tuple[pathlib.Path, str]:
     return dest, CSV_URL
 
 
+def make_pdf(pages: list[str], size: tuple[int, int] = (595, 842)) -> bytes:
+    """A minimal well-formed PDF, so the document plan has deterministic ground truth."""
+    w, h = size
+    objs: dict[int, bytes] = {}
+    n = len(pages)
+    kids = " ".join(f"{4 + 2 * i} 0 R" for i in range(n))
+    objs[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
+    objs[2] = f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode()
+    objs[3] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+    for i, text in enumerate(pages):
+        body = f"BT /F1 24 Tf 72 720 Td ({text}) Tj ET".encode()
+        objs[4 + 2 * i] = (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w} {h}] "
+                           f"/Resources << /Font << /F1 3 0 R >> >> "
+                           f"/Contents {5 + 2 * i} 0 R >>").encode()
+        objs[5 + 2 * i] = (f"<< /Length {len(body)} >>".encode()
+                           + b"\nstream\n" + body + b"\nendstream")
+    out = bytearray(b"%PDF-1.7\n")
+    offsets = {}
+    for num in sorted(objs):
+        offsets[num] = len(out)
+        out += f"{num} 0 obj\n".encode() + objs[num] + b"\nendobj\n"
+    xref_at = len(out)
+    total = max(objs) + 1
+    out += f"xref\n0 {total}\n".encode() + b"0000000000 65535 f \n"
+    for num in range(1, total):
+        out += f"{offsets.get(num, 0):010d} 00000 n \n".encode()
+    out += (f"trailer\n<< /Size {total} /Root 1 0 R >>\nstartxref\n{xref_at}\n%%EOF\n").encode()
+    return bytes(out)
+
+
 def build_base(root: pathlib.Path, csv_src: pathlib.Path) -> None:
     """The pristine deliverable: one real CSV plus a synthetic image export."""
     (root / "export").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(csv_src, root / CSV_NAME)
     for i, (w, h) in enumerate([(8, 6), (12, 9), (4, 4), (16, 12), (10, 10), (6, 8)]):
         (root / "export" / f"img_{i}.png").write_bytes(png_bytes(w, h, seed=i))
+    (root / "report.pdf").write_bytes(make_pdf(["Invoice 2026-11", "Terms and conditions"]))
 
 
 # ----------------------------------------------------------------- plans
@@ -125,7 +156,16 @@ def plans_for(root: pathlib.Path, header: list[str], rows: int, digest: str,
          "expect": {"files": 6, "sha256": export_sha},
          "proves": "every exported image is unchanged, byte for byte"},
     ])
-    return {"narrow": rows_only, "structural": structural, "strict": strict}
+    documents = plan_body(root, "documents: the report's shape and its words", [
+        {"id": "pages", "type": "pdf_pages", "path": "report.pdf", "equals": 2,
+         "proves": "the report has two pages"},
+        {"id": "page-size", "type": "pdf_page_size", "path": "report.pdf",
+         "width": 595, "height": 842, "proves": "the page is A4"},
+        {"id": "has-invoice", "type": "pdf_text_contains", "path": "report.pdf",
+         "contains": "Invoice", "proves": "the document contains its invoice heading"},
+    ])
+    return {"narrow": rows_only, "structural": structural, "strict": strict,
+            "documents": documents}
 
 
 # ----------------------------------------------------------------- defects
@@ -197,6 +237,18 @@ def defects(csv_text: str, header: list[str]) -> dict[str, callable]:
     def image_wrong_dims(r: pathlib.Path) -> None:
         (r / "export" / "img_0.png").write_bytes(png_bytes(80, 60, seed=0))
 
+    def pdf_drop_page(r: pathlib.Path) -> None:
+        (r / "report.pdf").write_bytes(make_pdf(["Invoice 2026-11"]))
+
+    def pdf_lose_text(r: pathlib.Path) -> None:
+        # Remove the heading everywhere: the first version only changed page two, so the
+        # text the plan asserts was still present and the "defect" caught nothing.
+        (r / "report.pdf").write_bytes(make_pdf(["Quarterly summary", "Terms and conditions"]))
+
+    def pdf_wrong_page_size(r: pathlib.Path) -> None:
+        (r / "report.pdf").write_bytes(make_pdf(["Invoice 2026-11", "Terms and conditions"],
+                                                size=(612, 792)))
+
     return {
         "csv: drop last row": drop_last_row,
         "csv: duplicate a row": duplicate_row,
@@ -211,6 +263,9 @@ def defects(csv_text: str, header: list[str]) -> dict[str, callable]:
         "export: extra image": image_added,
         "export: pixels changed, same dims": image_pixels_changed,
         "export: wrong dimensions": image_wrong_dims,
+        "pdf: page dropped": pdf_drop_page,
+        "pdf: heading text missing": pdf_lose_text,
+        "pdf: wrong page size (Letter, not A4)": pdf_wrong_page_size,
     }
 
 
@@ -339,8 +394,15 @@ def main() -> int:
     OUT.write_text(json.dumps(summary, indent=2))
     print(f"\nfull results: {OUT}")
 
-    ok = (all(v == "PASS" for v in baseline.values()) and catch["strict"] == n_defects
-          and false_alarm["structural"] == 0 and false_alarm["narrow"] == 0)
+    # Each defect is expected to be caught by the plan that actually asserts something about
+    # it: the strict plan for data/export defects, the documents plan for PDF defects.
+    data_defects = [r for r in per_defect if not r["defect"].startswith("pdf:")]
+    pdf_defects = [r for r in per_defect if r["defect"].startswith("pdf:")]
+    ok = (all(v == "PASS" for v in baseline.values())
+          and all(r["caught_by"]["strict"]["caught"] for r in data_defects)
+          and all(r["caught_by"]["documents"]["caught"] for r in pdf_defects)
+          and false_alarm["structural"] == 0 and false_alarm["documents"] == 0
+          and false_alarm["narrow"] == 0)
     print("\nbench:", "PASS" if ok else "REVIEW")
     return 0 if ok else 1
 

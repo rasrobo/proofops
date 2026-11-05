@@ -132,9 +132,11 @@ def http_header_equals(spec: dict, target: str) -> tuple[bool, dict]:
 
 from . import artifacts  # noqa: E402  (registered below)
 from . import commands  # noqa: E402  (registered below)
+from . import pdfdoc  # noqa: E402  (registered below)
 
 FILE_CHECK_TYPES = (
     "file_sha256", "file_exists", "dir_manifest", "csv_stats", "image_size",
+    "pdf_pages", "pdf_page_size", "pdf_text_contains",
 )
 
 REGISTRY = {
@@ -144,6 +146,9 @@ REGISTRY = {
     "dir_manifest": artifacts.dir_manifest,
     "csv_stats": artifacts.csv_stats,
     "image_size": artifacts.image_size,
+    "pdf_pages": pdfdoc.pdf_pages,
+    "pdf_page_size": pdfdoc.pdf_page_size,
+    "pdf_text_contains": pdfdoc.pdf_text_contains,
     "http_status": http_status,
     "http_json_field": http_json_field,
     "http_body_contains": http_body_contains,

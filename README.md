@@ -90,6 +90,7 @@ Supported check types:
 | live service | `http_status`, `http_json_field` (`equals` or `contains`), `http_body_contains`, `http_header` |
 | process | `command_exit` (fenced twice — see below) |
 | deliverable | `file_exists`, `file_sha256`, `dir_manifest`, `csv_stats`, `image_size` |
+| document | `pdf_pages`, `pdf_page_size`, `pdf_text_contains` |
 
 Deliverable checks answer the claims a demo never shows: the export that lost a file, the CSV
 that parses and is short, the images that are the wrong size. They are fenced by
@@ -228,24 +229,25 @@ Identical revisions: the plan was not weakened between runs.
 ## Status
 
 Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
-stdlib-only engine: 5 plans, plan loading, ten check types, command checks fenced twice,
-path-fenced deliverable checks, sealed and optionally signed receipts, allowlist enforcement,
-CLI, and a defect-injection benchmark. 69 tests. Deliberately not built: authenticated HTTP
+stdlib-only engine: 5 plans, plan loading, thirteen check types, command checks fenced twice,
+path-fenced deliverable, document and process checks, sealed and optionally signed receipts,
+allowlist enforcement, CLI, and a defect-injection benchmark. 79 tests. Deliberately not built: authenticated HTTP
 and browser flows, plan composition, and any UI.
 
 ## What does it actually catch? (`bench/run_bench.py`)
 
 A verifier's honest question about itself is not "do my checks pass" but "what is my detection
 rate, and what do I flag when nothing is wrong". The benchmark answers both against a corpus
-whose ground truth is known by construction: a real public CSV (194 countries, 194 rows) plus
-a deterministic image export, with **13 defects injected one at a time** and **3 benign
-changes** applied to a clean copy.
+whose ground truth is known by construction: a real public CSV (194 countries, 194 rows), a
+deterministic image export and a two-page PDF, with **16 defects injected one at a time** and
+**3 benign changes** applied to a clean copy.
 
 ```
   plan              defects caught   benign changes flagged
-  narrow                 3/13                0/3
-  structural            12/13                0/3
-  strict                13/13                3/3
+  narrow                 3/16                0/3
+  structural            12/16                0/3
+  strict                13/16                3/3
+  documents              3/16                0/3     (the 3 PDF defects, all caught)
 ```
 
 The point is the trade-off, not a winner:
@@ -254,8 +256,10 @@ The point is the trade-off, not a winner:
   misses a blanked cell, a truncated line, a renamed header, a missing image, a wrong
   dimension. This is what most "the export looks fine" checks actually assert.
 * **structural** (rows + header + per-column nulls + export inventory + image dimensions)
-  catches 12 of 13, with no false alarms. It still misses an image whose pixels changed but
-  whose size did not — structure is not content.
+  catches 12 of 16, with no false alarms. It still misses an image whose pixels changed but
+  whose size did not — structure is not content — and it asserts nothing at all about the PDF.
+* **documents** (page count, page size, text landmarks) catches all three PDF defects with no
+  false alarms. It says nothing about the CSV: a plan is only as wide as the claims it makes.
 * **strict** (byte-exact checksums) catches everything, and also flags a file that was merely
   re-saved with CRLF endings, reordered rows, or given a trailing newline. Exactness is a
   choice about what you are promising, not a higher grade of verification.

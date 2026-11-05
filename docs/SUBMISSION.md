@@ -29,7 +29,8 @@ reproduction, and no production dependency.
 | deliverable inventory | "the export contains what we shipped" | directory listing (names, sizes, optional per-file sha256) against a pinned digest | file count, total bytes, listing digest, mismatches | names and bytes only; says nothing about whether an image is *correct*, only whether it is unchanged |
 | tabular deliverable | "the data loaded, all rows, no gaps" | row count, header equality, per-column null counts | observed rows/columns/nulls/blank_rows, per-field mismatches | CSV shape only; does not validate types, ranges or referential integrity |
 | image dimensions | "the images are the size the client ordered" | PNG/GIF/JPEG header parse (no decode) | format and observed dimensions | dimensions only; not colour space, DPI metadata or visual content |
-| defect detection rate | "the checks work" | 13 injected defects + 3 benign changes in `bench/run_bench.py` | caught/flagged per plan strength | measure is about these defect classes; a defect class not injected is not measured |
+| PDF deliverable | "the report shipped, with its words" | page count from the page tree, first-page MediaBox, literal text in content streams | pages + method, page size, extracted characters/snippet | text extraction fails on scanned pages and CID fonts without ToUnicode — reported as "cannot answer", not as "missing"; no rendering check |
+| defect detection rate | "the checks work" | 16 injected defects + 3 benign changes in `bench/run_bench.py` | caught/flagged per plan strength | measure is about these defect classes; a defect class not injected is not measured |
 
 ## 4. Executed runs (real receipts)
 
@@ -115,8 +116,8 @@ readiness document.
 | real failure → repair → pass, same revision | done |
 | gates that cannot be bypassed | done, counter-tested |
 | limitations stated per plan | done, enforced at load |
-| the tool's own tests | **done — 69 tests** |
-| published detection + false-alarm rates | **done — 3/13 · 12/13 · 13/13 by plan strength; 0 false alarms for structural, 3 for strict** |
+| the tool's own tests | **done — 79 tests** |
+| published detection + false-alarm rates | **done — 3/16 · 12/16 · 13/16 · 3/16 by plan strength; 0 false alarms for structural and documents, 3 for strict** |
 | receipts cannot be edited undetected | **done — sealed sha256, optional HMAC, `verify` exits 0/1/2** |
 | receipts self-contained | done — plan body embedded |
 | project-local integration (`proofops/` in the target repo, AGENTS.md note) | **not done** |
