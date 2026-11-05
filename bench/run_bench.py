@@ -382,7 +382,17 @@ def main() -> int:
         if not row["caught_by"]["narrow"]["caught"]:
             print(f"  - {row['defect']}")
 
+    # Stamp what produced this file. A results artefact that cannot say which run and which
+    # code made it is exactly the ambiguity this tool exists to remove - a stale background
+    # job once reported pre-fix numbers that looked like a fresh result.
     summary = {
+        "generated_at": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+        "bench_script_sha256": hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()[:16],
+        "proofops_version": __import__("proofops").__version__,
+        "python": __import__("platform").python_version(),
+        "defect_count": n_defects,
+        "benign_count": n_benign,
         "corpus": {"source": source, "rows": n_rows, "columns": header, "sha256": digest},
         "plans": list(plans),
         "baseline_verdicts": baseline,
@@ -393,6 +403,8 @@ def main() -> int:
     }
     OUT.write_text(json.dumps(summary, indent=2))
     print(f"\nfull results: {OUT}")
+    print(f"  generated at {summary['generated_at']} · {n_defects} defects · "
+          f"proofops {summary['proofops_version']} · bench {summary['bench_script_sha256']}")
 
     # Each defect is expected to be caught by the plan that actually asserts something about
     # it: the strict plan for data/export defects, the documents plan for PDF defects.
