@@ -133,7 +133,22 @@ def summarise(receipt: dict) -> str:
         if extracted:
             lines.append("         extracted: " + ", ".join(f"{k}={v}" for k, v in extracted.items()))
         if c["passed"] is not True:
-            lines.append(f"         observed: {json.dumps(detail)[:240]}")
+            # Prefer the structured mismatch over a 240-character JSON cut: on a 1080p
+            # terminal (and in a demo) a line that ends mid-token reads as broken output.
+            mismatches = detail.get("mismatches") or []
+            if mismatches:
+                for m in mismatches[:4]:
+                    lines.append(
+                        f"         observed: {m.get('field')} expected {m.get('expected')!r}, "
+                        f"got {m.get('observed')!r}"
+                    )
+                if len(mismatches) > 4:
+                    lines.append(f"         ... and {len(mismatches) - 4} more mismatches")
+            else:
+                raw = json.dumps(detail)
+                if len(raw) > 240:
+                    raw = raw[:237].rsplit(" ", 1)[0] + "..."
+                lines.append(f"         observed: {raw}")
     lines.append("  Not verified:")
     for item in receipt["does_not_prove"]:
         lines.append(f"    - {item}")

@@ -307,6 +307,18 @@ class TestReceipt(unittest.TestCase):
              "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}}])
         self.assertEqual(rec["summary"]["verdict"], "FAIL")
 
+    def test_a_failing_check_shows_the_mismatch_not_truncated_json(self):
+        """A line that ends mid-token reads as broken output — show the mismatch instead."""
+        rec = receipt_mod.build(self._plan(), "local", [
+            {"id": "c", "type": "csv_stats", "passed": False, "proves": "rows complete",
+             "started_at": "2026-01-01T00:00:00+00:00",
+             "evidence": {"path": "data.csv", "mismatches": [
+                 {"field": "nulls.Country", "expected": 0, "observed": 1}]}}])
+        text = receipt_mod.summarise(rec)
+        self.assertIn("nulls.Country", text)
+        self.assertIn("expected 0", text)
+        self.assertNotIn('"mismatches"', text)
+
     def test_receipt_records_the_plan_revision(self):
         rec = receipt_mod.build(self._plan(), "local", [
             {"id": "c", "type": "t", "passed": True, "proves": "x",
