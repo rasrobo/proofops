@@ -29,7 +29,7 @@ No dependencies beyond the Python standard library.
 
 ```bash
 python3 -m proofops list --plans plans
-python3 -m proofops run plans/claw-way-deployment.json --target https://hub.sqs.chat
+python3 -m proofops run plans/claw-way-deployment.json --target https://app.example.com
 python3 -m proofops show receipts/PO-....json
 ```
 
@@ -67,7 +67,7 @@ tools matching registrations, security scan, and no-core-override.
 {
   "name": "claw-way-django deployment readiness",
   "target_kind": "production-readonly",
-  "allowed_origins": ["https://hub.sqs.chat"],
+  "allowed_origins": ["https://app.example.com"],
   "checks": [
     { "id": "health-reports-ok", "type": "http_json_field",
       "path": "/health", "field": "status", "equals": "ok",
@@ -142,7 +142,32 @@ python3 -m proofops run plans/claw-way-deployment.local.json --target http://127
 # re-run: PASS   (same plan revision)
 ```
 
-Three real receipts from that cycle:
+## Reproduce the whole demonstration from a clean clone
+
+Copy-paste, about 20 seconds, no dependencies. The defect is a one-line change to a
+throwaway fixture — no service is touched.
+
+```bash
+python3 fixtures/readiness_server.py 8099 &          # disposable readiness endpoint
+
+# 1. healthy — PASS 4/4
+python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
+
+# 2. inject the defect: the app reports "degraded" but still answers HTTP 200
+sed -i 's/"status": "ok"/"status": "degraded"/' fixtures/state.json
+python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
+#    -> FAIL 3/4, observed {"expected": "ok", "observed": "degraded", "http_status": 200}
+
+# 3. repair with ordinary tools (ProofOps repairs nothing), re-run the SAME plan
+sed -i 's/"status": "degraded"/"status": "ok"/' fixtures/state.json
+python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
+#    -> PASS 4/4, identical plan revision
+```
+
+The plan revision in all three receipts is `sha256:eb01b6d884f0b144` — that is what proves
+the test was not loosened to get the green.
+
+## Three real receipts from that cycle
 
 | run | verdict | revision |
 |---|---|---|

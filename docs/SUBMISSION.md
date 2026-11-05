@@ -145,3 +145,31 @@ which is the only honest way to test a verifier.
 
 Still missing for submission: the sanitised public mirror, the recorded demo, and the
 project-local integration in `claw-way-django`.
+
+## 11. Project-local integration
+
+`claw-way-django` (the live SaaS this was built against) now carries `proofops/` — two plans,
+a README, and one `AGENTS.md` instruction. Receipts are written to `proofops/receipts/`,
+which is git-ignored.
+
+| plan | the claim it answers | today's run |
+|---|---|---|
+| `deployment-readiness.json` | "the deploy is live" | `PO-20261105T011634Z-02ef` — **PASS 4/4** |
+| `auth-endpoint-suite.json` | "authentication is fixed" | `PO-20261105T012615Z-ab8b` — **FAIL 6/241** |
+
+The second one is the reason this tool exists. It ran the project's own endpoint and
+authentication suite inside the deployed container: **235 passed, 6 failed in 9m22s**. One
+cause is proven rather than guessed — the suite expects an SSH hop to
+`claw.token.sqs.chat`, a name with no DNS record, so the view logs
+`Could not resolve hostname` and the redirect carries no token fragment. The other five need
+triage (tracked in that repository's #488).
+
+An agent asked to report on that work would have said "authentication is fixed". The plan
+returned six failing assertions and the observed values instead.
+
+Neither plan can be quietly turned green: `deployment-readiness` needs the application to
+report `status=ok`, and `auth-endpoint-suite` needs the suite's own exit code *and* the word
+`passed` in its output — an exit 0 with nothing collected fails.
+
+The one thing this integration does **not** prove is that a real user can log in: the suite
+drives Django's test client, not a browser. That limitation is printed on every receipt.
