@@ -160,6 +160,31 @@ A receipt also names the inspector that produced it: `environment.commit` (the P
 build), host, Python and working directory. A certificate without the inspector's identity
 is not evidence.
 
+## When nothing could be checked
+
+The failure mode that matters most in practice is not a failing check — it is a check that
+never ran, sitting in a mostly-green list. A refused command is the normal way this happens
+(the operator did not pass `--allow-commands`), and it must not be summarised as a pass, nor
+as a failure.
+
+```
+$ python3 -m proofops run plans/claw-way-deployed-config.json --target prod
+...
+  [NOT RUN] django-check-exit: the deployed container's settings and model graph validate
+         reason: commands are disabled for this run (pass --allow-commands)
+
+  INCOMPLETE - 2 of 2 checks could not be performed.
+  NOTHING MAY BE CLAIMED from this receipt, including the checks that passed.
+    not run: django-check-exit - ... validate without errors
+             reason: commands are disabled for this run (pass --allow-commands)
+```
+
+The receipt carries `summary.claimable` (`true` only for a clean PASS), `summary.not_run_ids`,
+and a top-level `not_verified` list of `{id, proves, reason}`. The Hermes tool returns the same
+fields and a report line ending in `NOT CLAIMABLE: …`, so an agent has a machine-checkable
+branch instead of prose to interpret. An unknown check type is refused when the plan loads —
+a typo can never be recorded as either a pass or a failure.
+
 ```
 run_id            PO-20261104T231903Z-ff6b
 plan_revision     sha256:eb01b6d884f0b144

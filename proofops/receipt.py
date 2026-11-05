@@ -62,7 +62,8 @@ def build(plan: dict, target: str, results: list[dict], key: str | None = None) 
     # when in fact it was never run.
     passed = sum(1 for r in results if r["passed"] is True)
     failed = sum(1 for r in results if r["passed"] is False)
-    not_run = sum(1 for r in results if r["passed"] is None)
+    not_run_list = [r for r in results if r["passed"] is None]
+    not_run = len(not_run_list)
     if not results:
         verdict = "FAIL"
     elif failed:
@@ -90,11 +91,22 @@ def build(plan: dict, target: str, results: list[dict], key: str | None = None) 
             "passed": passed,
             "failed": failed,
             "not_run": not_run,
+            "not_run_ids": [r["id"] for r in not_run_list],
             "verdict": verdict,
+            "claimable": verdict == "PASS",
         },
         "checks": results,
         # Copied into every receipt on purpose: the limitations travel with the evidence,
         # so a receipt can never be quoted as "everything works".
+        # Said once, at the top, in the shape an operator can act on: which checks were not
+        # performed and why. Burying this inside each check's evidence is how a tool quietly
+        # fails - the reader sees a mostly-green list and stops looking.
+        "not_verified": [
+            {"id": r["id"], "proves": r["proves"],
+             "reason": (r["evidence"].get("refused") or r["evidence"].get("error")
+                        or "not run")}
+            for r in not_run_list
+        ],
         "does_not_prove": plan["does_not_prove"],
         # A certificate without the inspector's identity is not evidence: which build ran,
         # on which host, and from which working directory all change what a reader should
@@ -132,7 +144,12 @@ def summarise(receipt: dict) -> str:
         extracted = detail.get("extracted") or {}
         if extracted:
             lines.append("         extracted: " + ", ".join(f"{k}={v}" for k, v in extracted.items()))
-        if c["passed"] is not True:
+        if c["passed"] is None:
+            # A refusal needs one thing: why. The raw evidence dict above the summary is noise
+            # for this outcome, and noise is what makes people stop reading.
+            reason = (detail.get("refused") or detail.get("error") or "not run")
+            lines.append(f"         reason: {reason}")
+        elif c["passed"] is False:
             # Prefer the structured mismatch over a 240-character JSON cut: on a 1080p
             # terminal (and in a demo) a line that ends mid-token reads as broken output.
             mismatches = detail.get("mismatches") or []
@@ -149,6 +166,18 @@ def summarise(receipt: dict) -> str:
                 if len(raw) > 240:
                     raw = raw[:237].rsplit(" ", 1)[0] + "..."
                 lines.append(f"         observed: {raw}")
+    # The block an operator actually needs: what was not performed, and that the rest of the
+    # receipt may not be quoted as completion. A mostly-green list with a quiet gap in it is
+    # how verification tools fail in practice.
+    if receipt["summary"]["verdict"] == "INCOMPLETE":
+        n = receipt["summary"]["not_run"]
+        total = receipt["summary"]["checks"]
+        lines.append("")
+        lines.append(f"  INCOMPLETE - {n} of {total} checks could not be performed.")
+        lines.append("  NOTHING MAY BE CLAIMED from this receipt, including the checks that passed.")
+        for item in receipt.get("not_verified", []):
+            lines.append(f"    not run: {item['id']} - {item['proves']}")
+            lines.append(f"             reason: {item['reason']}")
     lines.append("  Not verified:")
     for item in receipt["does_not_prove"]:
         lines.append(f"    - {item}")

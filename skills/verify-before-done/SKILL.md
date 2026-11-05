@@ -31,7 +31,9 @@ reads it.
    - `FAIL` — quote the failing check's `observed` value. Repair, then re-run the **same
      plan file**; a changed plan is a new revision and the before/after is no longer a
      comparison.
-   - `INCOMPLETE` — nothing may be claimed. Say what could not be run and why.
+   - `INCOMPLETE` — nothing may be claimed, **including the checks that passed**. The
+     receipt carries `claimable: false` and a `not_verified` list naming every check that did
+     not run and the reason. Quote that list verbatim; do not summarise it as "mostly fine".
 4. **Check the seal before quoting it.** `proofops_verify(receipt="PO-…")`. If it returns
    `tampered`, the file was edited after it was written — quote nothing from it and re-run
    the plan. `valid` means only that the file is unchanged; it does **not** mean the checks
@@ -48,6 +50,8 @@ reads it.
 - Never summarise a receipt as "everything works". The `does_not_prove` list is part of the
   result, not a disclaimer to drop.
 - Never widen a plan's `allowed_origins` or `allowed_commands` to make a run go green.
+- Branch on `claimable`, not on the count of green ticks. `claimable: false` means you may not
+  write "done", "deployed", "fixed" or "verified", even if every check that did run passed.
 - Never describe a `NOT RUN` check as passed, or a refused check as failed.
 - Never quote a receipt whose seal does not verify, and never present "sealed" as "true":
   sealing proves the file is unchanged, not that the inspection was adequate.

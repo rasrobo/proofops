@@ -73,6 +73,15 @@ def load(path: str | pathlib.Path) -> dict:
             raise PlanError(f"check needs 'id' and 'type': {c}")
         if "proves" not in c:
             raise PlanError(f"check '{c['id']}' must state what it proves")
+        # An unknown type is a broken plan, not a failed assertion: at run time it would be
+        # the one outcome that must never be guessed at. Refuse it before anything executes.
+        from .checks import REGISTRY
+
+        if c["type"] not in REGISTRY:
+            raise PlanError(
+                f"check '{c['id']}' has unknown type '{c['type']}'. "
+                f"Known types: {', '.join(sorted(REGISTRY))}"
+            )
         ex = c.get("extract")
         if ex is not None:
             # Extraction feeds the receipt's headline evidence, so a broken pattern is a

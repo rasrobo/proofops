@@ -119,6 +119,16 @@ class TestPlanValidation(unittest.TestCase):
                 plan_mod.load(p)
             self.assertIn("allowed_commands", str(e.exception))
 
+    def test_an_unknown_check_type_is_refused_at_load(self):
+        """A typo must not run as a check, and must not be recorded as a failure either."""
+        with tempfile.TemporaryDirectory() as d:
+            p = write_plan(d, allowed_origins=["https://x"],
+                           checks=[{"id": "c1", "type": "htp_status", "path": "/",
+                                    "expect": 200, "proves": "y"}])
+            with self.assertRaises(plan_mod.PlanError) as e:
+                plan_mod.load(p)
+            self.assertIn("unknown type", str(e.exception))
+
     def test_origin_allowlist_is_enforced(self):
         plan = {"allowed_origins": ["https://hub.example"]}
         plan_mod.check_origin(plan, "https://hub.example/health")   # allowed
@@ -298,6 +308,32 @@ class TestReceipt(unittest.TestCase):
         self.assertEqual(rec["summary"]["failed"], 0)
         self.assertIn("[NOT RUN]", receipt_mod.summarise(rec))
         self.assertNotIn("[FAIL]", receipt_mod.summarise(rec))
+
+    def test_unperformed_checks_are_listed_at_the_top_and_forbid_a_claim(self):
+        """The failure mode operators hit: a mostly-green receipt hides the gap."""
+        rec = receipt_mod.build(self._plan(), "local", [
+            {"id": "ok", "type": "t", "passed": True, "proves": "x",
+             "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}},
+            {"id": "skipped", "type": "command_exit", "passed": None,
+             "proves": "the deployed config validates",
+             "started_at": "2026-01-01T00:00:00+00:00",
+             "evidence": {"status": "not_run", "refused": "commands are disabled"}}])
+        self.assertEqual(rec["summary"]["verdict"], "INCOMPLETE")
+        self.assertFalse(rec["summary"]["claimable"])
+        self.assertEqual(rec["summary"]["not_run_ids"], ["skipped"])
+        self.assertEqual(rec["not_verified"][0]["id"], "skipped")
+        self.assertIn("commands are disabled", rec["not_verified"][0]["reason"])
+        text = receipt_mod.summarise(rec)
+        self.assertIn("NOTHING MAY BE CLAIMED", text)
+        self.assertIn("not run: skipped", text)
+        self.assertIn("commands are disabled", text)
+
+    def test_a_pass_is_claimable_and_has_no_unperformed_checks(self):
+        rec = receipt_mod.build(self._plan(), "local", [
+            {"id": "ok", "type": "t", "passed": True, "proves": "x",
+             "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}}])
+        self.assertTrue(rec["summary"]["claimable"])
+        self.assertEqual(rec["not_verified"], [])
 
     def test_a_real_failure_outranks_an_incomplete_check(self):
         rec = receipt_mod.build(self._plan(), "local", [

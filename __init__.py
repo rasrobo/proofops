@@ -136,6 +136,13 @@ def _run(args: dict, **_kw) -> str:
     report = (f"ProofOps run {rec['run_id']} {rec['summary']['verdict'].lower()}: "
               + "; ".join(f"{c['id']} {_mark(c['passed']).lower()}" for c in rec["checks"])
               + ". Not verified: " + "; ".join(rec["does_not_prove"]))
+    if not rec["summary"]["claimable"]:
+        # Say the prohibition in the machine-readable result, not only in prose: an agent that
+        # reads `claimable: false` has no room to summarise this as done.
+        report += (" NOT CLAIMABLE: " + rec["summary"]["verdict"]
+                   + (" - these checks did not run: " + ", ".join(rec["summary"]["not_run_ids"])
+                      if rec["summary"]["not_run_ids"] else
+                      " - a check failed; quote the failing id and its observed value"))
     return json.dumps({
         "run_id": rec["run_id"],
         "verdict": rec["summary"]["verdict"],
@@ -145,6 +152,9 @@ def _run(args: dict, **_kw) -> str:
         "plan_revision": rec["plan_revision"],
         "checks": checks,
         "verified_claims": verified,
+        "claimable": rec["summary"]["claimable"],
+        "not_run": rec["summary"]["not_run_ids"],
+        "not_verified": rec.get("not_verified", []),
         "does_not_prove": rec["does_not_prove"],
         "report_line": report,
     }, indent=2)
