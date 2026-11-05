@@ -33,9 +33,33 @@ python3 -m proofops run plans/claw-way-deployment.json --target https://hub.sqs.
 python3 -m proofops show receipts/PO-....json
 ```
 
-Exit codes: `0` all checks passed · `1` a check failed · `2` the run could not be
-performed (bad plan, or a target the plan never declared). A caller that ignores the
-output can still trust the exit code.
+Exit codes: `0` all checks passed · `1` a check failed · `2` the run could not be performed
+(bad plan, a target the plan never declared, or a command the operator never authorised).
+A caller that ignores the output can still trust the exit code.
+
+## Use it as a Hermes plugin
+
+The repository root is a loadable Hermes plugin (`plugin.yaml` + `__init__.py`): three
+tools and one skill, no dependencies.
+
+```bash
+hermes plugins install https://github.com/<owner>/proofops   # or: cp -r . ~/.hermes/plugins/proofops
+hermes plugins enable proofops
+hermes plugins validate ~/.hermes/plugins/proofops           # the catalog CI gate
+```
+
+| tool | what it does |
+|---|---|
+| `proofops_plans` | list the plans available, with the revision and the limitations each declares |
+| `proofops_run` | run one plan, return the receipt's substance and its `does_not_prove` list |
+| `proofops_receipt` | re-print a stored receipt by run id |
+
+The bundled `verify-before-done` skill tells the agent when to reach for them: before it
+writes "done", "deployed", "fixed" or "everything works". The plugin adds no check types
+and cannot repair anything — it only puts a receipt between the claim and the user.
+
+`hermes plugins validate .` passes: manifest, `requires_hermes`, capability probe, declared
+tools matching registrations, security scan, and no-core-override.
 
 ## Plans are data
 
@@ -130,9 +154,10 @@ Identical revisions: the plan was not weakened between runs.
 
 ## Status
 
-First vertical slice: plan loading, four check types, receipt writing, allowlist
-enforcement, CLI. Deliberately not yet built — approval-gated command checks, authenticated
-HTTP, artifact/file assertions, plan composition, and any UI.
+Loadable Hermes plugin (3 tools + 1 bundled skill, `hermes plugins validate` clean) over a
+stdlib-only engine: 5 plans, Plan loading, four check types, command checks fenced twice,
+receipts, allowlist enforcement, CLI. 29 tests. Deliberately not built: authenticated HTTP
+and browser flows, artifact/file assertions, plan composition, and any UI.
 
 ## Command checks — fenced twice
 
@@ -155,6 +180,17 @@ refused: commands are disabled for this run (pass --allow-commands)
 Identical commands run **once per plan run** and are cached, so two checks asserting
 different things about a 90-second replay cost 90 seconds, not 180. The receipt records
 `reused_from_cache: true` on the second check rather than hiding the reuse.
+
+### A refusal is a third outcome, never a failure
+
+If the plan declares the command but the operator did not pass `--allow-commands` (or the
+plan never declared it), the check is recorded as **`NOT RUN`**, the receipt's verdict is
+**`INCOMPLETE`**, and the CLI exits **2**.
+
+This used to be a `FAIL`. That was a lie of exactly the kind this tool exists to catch: the
+receipt read *"the deployed configuration failed validation"* for a command that was never
+executed. A verification tool that manufactures false negatives is worse than none, because
+someone will act on it. `tests/test_proofops.py` pins the behaviour.
 
 ### Two command plans, both executed
 

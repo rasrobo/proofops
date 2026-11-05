@@ -1,0 +1,50 @@
+---
+name: verify-before-done
+description: "Use before saying a task is complete: run the proofops plan and quote the receipt."
+version: 1.0.0
+---
+
+# Verify before done
+
+An agent's "done" is a claim. This skill is how to turn it into evidence before the user
+reads it.
+
+## When to use
+
+- The task ended with a deployment, a restart, a migration, a rebuild, a config change, or
+  a "it's live now".
+- You are about to write "done", "fixed", "deployed", "migrated", "verified", "all tests
+  pass", or "everything works".
+- A previous attempt already failed and you believe it is repaired — the re-run is the
+  proof, not your confidence.
+
+## Procedure
+
+1. **Find the plan.** `proofops_plans(plans_dir="plans")` — if a plan already covers the
+   outcome you are about to claim, use it. Do not write a fresh plan whose only purpose is
+   to pass.
+2. **Run it.** `proofops_run(plan="plans/<name>.json", target="https://…")`.
+   - Command checks come back `NOT RUN` unless `allow_commands=true` **and** the plan lists
+     the command verbatim. That is deliberate: a refusal is not a failure and not a pass.
+3. **Read the verdict.**
+   - `PASS` — every check passed. Say exactly which checks, by id.
+   - `FAIL` — quote the failing check's `observed` value. Repair, then re-run the **same
+     plan file**; a changed plan is a new revision and the before/after is no longer a
+     comparison.
+   - `INCOMPLETE` — nothing may be claimed. Say what could not be run and why.
+4. **Quote the receipt.** Use `report_line`, or:
+
+   ```
+   ProofOps run <run_id> passed: <the checks that passed>.
+   Not verified: <does_not_prove items that matter here>.
+   ```
+
+## Rules
+
+- Never summarise a receipt as "everything works". The `does_not_prove` list is part of the
+  result, not a disclaimer to drop.
+- Never widen a plan's `allowed_origins` or `allowed_commands` to make a run go green.
+- Never describe a `NOT RUN` check as passed, or a refused check as failed.
+- ProofOps verifies; it never repairs. Do the repair with ordinary tools, then re-run.
+- If no plan covers the outcome, say so plainly — "no verification exists for this claim"
+  is an honest answer, and a stronger one than an unverified success message.

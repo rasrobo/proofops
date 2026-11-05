@@ -97,7 +97,7 @@ readiness document.
 | real failure → repair → pass, same revision | done |
 | gates that cannot be bypassed | done, counter-tested |
 | limitations stated per plan | done, enforced at load |
-| the tool's own tests | **done — 26 tests** |
+| the tool's own tests | **done — 29 tests** |
 | receipts self-contained | done — plan body embedded |
 | project-local integration (`proofops/` in the target repo, AGENTS.md note) | **not done** |
 | authenticated / browser flows | **not attempted** — deliberately, see limitations |
@@ -107,3 +107,41 @@ The weakest part of this submission is coverage breadth: four plans, all about o
 project, and none touching authentication, billing or provisioning — the workflows where a
 premature "done" would cost the most. The strongest part is that every claim above has a
 receipt behind it, and one of those receipts contradicts an earlier claim of mine.
+
+## 10. Plugin packaging
+
+The hackathon is a *plugin* hackathon, so the repository root is now a loadable Hermes
+plugin: `plugin.yaml` + `__init__.py`, no dependencies, three tools and one bundled skill.
+
+| tool | purpose |
+|---|---|
+| `proofops_plans` | list the plans available, with revision and declared limitations |
+| `proofops_run` | run one plan; return the receipt's substance and `does_not_prove` |
+| `proofops_receipt` | re-print a stored receipt by run id |
+
+`skills/verify-before-done/SKILL.md` is registered with `ctx.register_skill`, so the agent
+is told to reach for a plan before it writes "done", "deployed", "fixed" or "everything
+works". The plugin adds no check types, cannot repair anything, and cannot widen a plan's
+allowlist.
+
+Verified by the catalog CI gate, run locally:
+
+```
+✓ manifest · requires_hermes · capability probe · declared tools match registrations
+✓ security scan — safe · no core override · built-in tool collisions — none
+Validation passed.
+```
+
+and by exercising the registered tools inside a real Hermes container: 5 plans listed, a
+fixture run `PASS 4/4`, a command plan without `allow_commands` correctly returning
+`INCOMPLETE` with both checks `NOT RUN`, and receipt lookup by run id.
+
+### The defect this packaging exposed
+
+A refused command used to be written into the receipt as `FAIL` with exit 1 — the receipt
+claimed the deployed configuration failed validation when nothing had run. It is now a third
+outcome: `NOT RUN`, verdict `INCOMPLETE`, exit 2. Caught by running the tool against itself,
+which is the only honest way to test a verifier.
+
+Still missing for submission: the sanitised public mirror, the recorded demo, and the
+project-local integration in `claw-way-django`.

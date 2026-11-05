@@ -32,7 +32,21 @@ def write(receipt: dict, out_dir: str | pathlib.Path = "receipts") -> pathlib.Pa
 
 
 def build(plan: dict, target: str, results: list[dict]) -> dict:
-    passed = sum(1 for r in results if r["passed"])
+    # Three outcomes, not two. ``passed`` is True / False / None, where None means the
+    # check could not be performed (a command the operator never authorised). Counting a
+    # refusal as a failure would let a receipt assert that something was tested and broke
+    # when in fact it was never run.
+    passed = sum(1 for r in results if r["passed"] is True)
+    failed = sum(1 for r in results if r["passed"] is False)
+    not_run = sum(1 for r in results if r["passed"] is None)
+    if not results:
+        verdict = "FAIL"
+    elif failed:
+        verdict = "FAIL"
+    elif not_run:
+        verdict = "INCOMPLETE"
+    else:
+        verdict = "PASS"
     return {
         "schema": SCHEMA,
         "run_id": new_run_id(),
@@ -50,8 +64,9 @@ def build(plan: dict, target: str, results: list[dict]) -> dict:
         "summary": {
             "checks": len(results),
             "passed": passed,
-            "failed": len(results) - passed,
-            "verdict": "PASS" if passed == len(results) and results else "FAIL",
+            "failed": failed,
+            "not_run": not_run,
+            "verdict": verdict,
         },
         "checks": results,
         # Copied into every receipt on purpose: the limitations travel with the evidence,
@@ -72,10 +87,10 @@ def summarise(receipt: dict) -> str:
         f"  target    {receipt['target']} [{receipt['target_kind']}]",
     ]
     for c in receipt["checks"]:
-        mark = "PASS" if c["passed"] else "FAIL"
+        mark = {True: "PASS", False: "FAIL", None: "NOT RUN"}[c["passed"]]
         lines.append(f"  [{mark}] {c['id']}: {c['proves']}")
         detail = c["evidence"]
-        if not c["passed"]:
+        if c["passed"] is not True:
             lines.append(f"         observed: {json.dumps(detail)[:300]}")
     lines.append("  Not verified:")
     for item in receipt["does_not_prove"]:

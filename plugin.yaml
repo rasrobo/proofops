@@ -1,0 +1,16 @@
+name: proofops
+version: "0.2.0"
+description: "Verification for completion claims. Hermes runs a declared plan of read-only checks against a target and gets a receipt: what passed, what was actually observed, and — printed on every receipt — what passing does not prove. Refuses to run a command the plan never declared or the operator never authorised."
+author: "Side Quest Studios"
+license: "MIT"
+requires_hermes: ">=0.21.5"
+provides_tools:
+  - proofops_plans
+  - proofops_run
+  - proofops_receipt
+tags:
+  - verification
+  - testing
+  - deployment
+  - evidence
+  - receipts

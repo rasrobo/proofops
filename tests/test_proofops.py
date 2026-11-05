@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from proofops import checks as checks_mod          # noqa: E402
+from proofops import cli as cli_mod                # noqa: E402
 from proofops import commands as commands_mod      # noqa: E402
 from proofops import plan as plan_mod              # noqa: E402
 from proofops import receipt as receipt_mod        # noqa: E402
@@ -206,13 +207,15 @@ class TestCommandPolicy(unittest.TestCase):
     def test_denied_by_default(self):
         commands_mod.set_policy(commands_mod.CommandPolicy())
         ok, ev = commands_mod.command_exit({"command": "true"}, "local")
-        self.assertFalse(ok)
+        # None, not False: nothing ran, so nothing may be recorded as having failed.
+        self.assertIsNone(ok, "a refusal must not be recorded as a failed assertion")
+        self.assertEqual(ev["status"], "not_run")
         self.assertIn("disabled", ev["refused"])
 
     def test_enabled_but_undeclared_is_refused(self):
         commands_mod.set_policy(commands_mod.CommandPolicy(enabled=True, allowed=("false",)))
         ok, ev = commands_mod.command_exit({"command": "true"}, "local")
-        self.assertFalse(ok)
+        self.assertIsNone(ok)
         self.assertIn("allowed_commands", ev["refused"])
 
     def test_enabled_and_declared_runs(self):
@@ -282,11 +285,59 @@ class TestReceipt(unittest.TestCase):
         self.assertIn("does_not_prove", body)
         self.assertNotIn("_path", body, "loader metadata must not leak into the receipt")
 
+    def test_not_run_makes_the_verdict_incomplete_not_fail(self):
+        """A check that was refused must not read as 'tested and broken'."""
+        rec = receipt_mod.build(self._plan(), "local", [
+            {"id": "a", "type": "t", "passed": True, "proves": "x",
+             "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}},
+            {"id": "b", "type": "t", "passed": None, "proves": "y",
+             "started_at": "2026-01-01T00:00:00+00:00",
+             "evidence": {"status": "not_run", "refused": "commands are disabled"}}])
+        self.assertEqual(rec["summary"]["verdict"], "INCOMPLETE")
+        self.assertEqual(rec["summary"]["not_run"], 1)
+        self.assertEqual(rec["summary"]["failed"], 0)
+        self.assertIn("[NOT RUN]", receipt_mod.summarise(rec))
+        self.assertNotIn("[FAIL]", receipt_mod.summarise(rec))
+
+    def test_a_real_failure_outranks_an_incomplete_check(self):
+        rec = receipt_mod.build(self._plan(), "local", [
+            {"id": "a", "type": "t", "passed": False, "proves": "x",
+             "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}},
+            {"id": "b", "type": "t", "passed": None, "proves": "y",
+             "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}}])
+        self.assertEqual(rec["summary"]["verdict"], "FAIL")
+
     def test_receipt_records_the_plan_revision(self):
         rec = receipt_mod.build(self._plan(), "local", [
             {"id": "c", "type": "t", "passed": True, "proves": "x",
              "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}}])
         self.assertEqual(rec["plan_revision"], "sha256:abc")
+
+
+class TestCliExitCodes(unittest.TestCase):
+    """The contract a script depends on. Before this existed, a refused command exited 1
+    and wrote a FAIL receipt, so CI would report 'the deployment check failed' for a check
+    the operator had deliberately not authorised."""
+
+    def test_refused_command_exits_2_and_writes_no_fail(self):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as d:
+            p = write_plan(
+                d,
+                checks=[{"id": "c", "type": "command_exit",
+                         "command": "echo should-not-run", "proves": "runs"}],
+                allowed_commands=["echo should-not-run"])
+            out = pathlib.Path(d) / "receipts"
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = cli_mod.main(["run", str(p), "--target", "local", "--out", str(out)])
+            self.assertEqual(code, 2, "refused must not be reported as a failed check")
+            self.assertIn("NOT RUN", buf.getvalue())
+            rec = json.loads(next(out.glob("*.json")).read_text())
+            self.assertEqual(rec["summary"]["verdict"], "INCOMPLETE")
+            self.assertEqual(rec["summary"]["failed"], 0)
+            self.assertEqual(rec["summary"]["not_run"], 1)
 
 
 if __name__ == "__main__":

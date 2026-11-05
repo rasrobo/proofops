@@ -41,7 +41,10 @@ class CommandPolicy:
 
 
 POLICY = CommandPolicy()
-_RESULTS: dict[str, tuple[bool, dict]] = {}
+# Values are (verdict, evidence), where verdict is True (passed), False (failed) or None
+# (refused — the command never ran). A refusal is a third outcome, not a failure; see
+# ``command_exit``.
+_RESULTS: dict[str, tuple[bool | None, dict]] = {}
 
 
 def set_policy(policy: CommandPolicy) -> None:
@@ -51,7 +54,7 @@ def set_policy(policy: CommandPolicy) -> None:
     _RESULTS = {}
 
 
-def command_exit(spec: dict, target: str) -> tuple[bool, dict]:
+def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
     command = spec["command"]
     # Two checks may assert different things about the same command. Run it once and
     # evaluate each check's assertions against the cached output — a 90-second migration
@@ -69,7 +72,11 @@ def command_exit(spec: dict, target: str) -> tuple[bool, dict]:
 
     permitted, why = POLICY.permits(command)
     if not permitted:
-        return False, {"command": command, "refused": why}
+        # A refusal is NOT a failed assertion. Recording it as one writes "the deployed
+        # configuration failed validation" into a receipt for a command that never ran —
+        # the exact overclaim this tool exists to prevent. It is a third outcome, and the
+        # CLI exits 2 for it (the run could not be performed).
+        return None, {"command": command, "status": "not_run", "refused": why}
 
     argv = shlex.split(command)
     started = time.monotonic()
