@@ -83,6 +83,28 @@ class TestVerifyTool(unittest.TestCase):
         self.assertTrue(any("honestly" in line for line in out["does_not_prove"]))
         self.assertTrue(engine)
 
+    def test_the_verify_tool_never_takes_a_key(self):
+        """Catalogue rule 11: a plugin does not read credential files. Signing is CLI-only."""
+        schemas = {name: schema for name, schema, _fn in PLUGIN._TOOLS}
+        props = schemas["proofops_verify"]["parameters"]["properties"]
+        self.assertEqual(set(props), {"receipt"}, f"unexpected parameters: {set(props)}")
+        self.assertNotIn("key", json.dumps(props).lower())
+
+    def test_a_signed_receipt_reports_needs_key_without_reading_one(self):
+        receipt_mod = importlib.import_module(f"{PLUGIN._ENGINE_NAME}.receipt")
+        rec = receipt_mod.build(
+            {"name": "p", "target_kind": "local", "checks": [], "does_not_prove": ["x"],
+             "_revision": "sha256:abc", "_path": "plans/p.json"},
+            "local",
+            [{"id": "c", "type": "t", "passed": True, "proves": "x",
+              "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}}],
+            key="k" * 32)
+        with tempfile.TemporaryDirectory() as d:
+            p = pathlib.Path(d) / "r.json"
+            p.write_text(json.dumps(rec))
+            out = json.loads(PLUGIN._verify({"receipt": str(p)}))
+        self.assertEqual(out["integrity"], "needs-key")
+
     def test_the_plugin_reports_a_tampered_receipt(self):
         receipt_mod = importlib.import_module(f"{PLUGIN._ENGINE_NAME}.receipt")
         rec = receipt_mod.build(

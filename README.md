@@ -56,6 +56,9 @@ hermes plugins validate ~/.hermes/plugins/proofops           # the catalog CI ga
 | `proofops_receipt` | re-print a stored receipt by run id |
 | `proofops_verify` | check a stored receipt against its seal: `valid`, `tampered`, `unsealed` or `needs-key` |
 
+The plugin never reads a signing key: a signed receipt reports `needs-key` there by design, and
+signing or keyed verification is a CLI operation where the operator holds the secret.
+
 The bundled `verify-before-done` skill tells the agent when to reach for them: before it
 writes "done", "deployed", "fixed" or "everything works". The plugin adds no check types
 and cannot repair anything — it only puts a receipt between the claim and the user.
@@ -257,7 +260,7 @@ Identical revisions: the plan was not weakened between runs.
 Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
 stdlib-only engine: 5 plans, plan loading, fourteen check types, command checks fenced twice,
 path-fenced deliverable, document and process checks, sealed and optionally signed receipts,
-allowlist enforcement, CLI, and a defect-injection benchmark. 93 tests. Deliberately not built: authenticated HTTP
+allowlist enforcement, CLI, and a defect-injection benchmark. 95 tests. Deliberately not built: authenticated HTTP
 and browser flows, plan composition, and any UI.
 
 ## What does it actually catch? (`bench/run_bench.py`)

@@ -200,7 +200,11 @@ def _verify(args: dict, **_kw) -> str:
         return json.dumps({"verdict": "unreadable", "error": str(e)})
 
     integrity_mod = _sub("integrity")
-    verdict, detail = integrity_mod.verify(rec, integrity_mod.key_from(args.get("key_file")))
+    # No key parameter on purpose: a plugin must not read a credential file (catalogue rule 11).
+    # A signed receipt therefore reports `needs-key` here, and signing/verifying with a key is a
+    # CLI operation (`--key-file` / PROOPS_SIGNING_KEY) where the operator, not the agent, holds
+    # the secret. Unsealed and unsigned receipts verify normally.
+    verdict, detail = integrity_mod.verify(rec, None)
     return json.dumps({
         "receipt": str(p),
         "run_id": rec.get("run_id"),
@@ -275,16 +279,15 @@ _TOOLS = (
         "name": "proofops_verify",
         "description": ("Check that a stored receipt still matches its seal — that nobody "
                         "edited the verdict, the evidence or the limitations after it was "
-                        "written. Returns valid / tampered / unsealed / needs-key. Seal "
-                        "validity is not correctness: it proves the file is unchanged, not "
-                        "that the checks were honest or adequate."),
+                        "written. Returns valid / tampered / unsealed / needs-key. Signed "
+                        "receipts report needs-key here by design: this tool never reads a key "
+                        "file; verify those with `proofops verify --key-file` as the operator. "
+                        "Seal validity is not correctness: it proves the file is unchanged, "
+                        "not that the checks were honest or adequate."),
         "parameters": {
             "type": "object",
             "properties": {
                 "receipt": {"type": "string", "description": "Run id (PO-…) or a file path."},
-                "key_file": {"type": "string",
-                             "description": ("Path to the signing key, for a signed receipt "
-                                             "(or set PROOPS_SIGNING_KEY).")},
             },
             "required": ["receipt"],
             "additionalProperties": False,

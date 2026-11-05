@@ -1,0 +1,58 @@
+name: verify
+
+# The repository argues that "the tests passed" is a claim needing evidence. This workflow is
+# that evidence, and it runs the same three commands the README tells a reader to run.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dependency policy
+        run: python -m pip install --upgrade pip
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Benchmark (18 injected defects + 4 benign changes)
+        run: python bench/run_bench.py
+
+      - name: Demonstration end-to-end
+        run: DEMO_FAST=1 bash demo/run_demo.sh
+
+      - name: Receipts are sealed and verify
+        run: |
+          set -e
+          R=$(ls -t receipts/*.json | head -1)
+          python -m proofops verify "$R"
+          echo "verified: $R"
+
+      - name: Upload receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipts
+          path: receipts/*.json
+          if-no-files-found: warn
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: bench/latest.json
+          if-no-files-found: warn

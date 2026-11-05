@@ -147,7 +147,7 @@ than none, because it buys false confidence.
 Working software: fourteen check types (live services, process, deliverables such as CSV shape
 and image dimensions, and documents such as PDF page count and text landmarks), five inspection
 plans, a receipt for every run, a defect-injection benchmark with published detection and
-false-alarm rates, and its own suite of 93 automated tests. Development so far has been applied to our live SaaS platform: deployments,
+false-alarm rates, and its own suite of 95 automated tests. Development so far has been applied to our live SaaS platform: deployments,
 configuration, database rebuilds and schema fidelity.
 
 The immediate next step is extending coverage to the workflows where a premature "done"
