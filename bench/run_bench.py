@@ -106,6 +106,19 @@ def make_pdf(pages: list[str], size: tuple[int, int] = (595, 842)) -> bytes:
     return bytes(out)
 
 
+def seed_mail_db(path: pathlib.Path) -> None:
+    """A system-of-record with a known state: the claim 'sent 66 and 143' can be tested."""
+    import sqlite3
+
+    conn = sqlite3.connect(path)
+    conn.execute("create table messages (id integer primary key, sent integer, body text)")
+    for i in (66, 143, 200):
+        conn.execute("insert into messages (id, sent, body) values (?,?,?)",
+                     (i, 1, f"message {i}"))
+    conn.commit()
+    conn.close()
+
+
 def build_base(root: pathlib.Path, csv_src: pathlib.Path) -> None:
     """The pristine deliverable: one real CSV plus a synthetic image export."""
     (root / "export").mkdir(parents=True, exist_ok=True)
@@ -113,6 +126,7 @@ def build_base(root: pathlib.Path, csv_src: pathlib.Path) -> None:
     for i, (w, h) in enumerate([(8, 6), (12, 9), (4, 4), (16, 12), (10, 10), (6, 8)]):
         (root / "export" / f"img_{i}.png").write_bytes(png_bytes(w, h, seed=i))
     (root / "report.pdf").write_bytes(make_pdf(["Invoice 2026-11", "Terms and conditions"]))
+    seed_mail_db(root / "dc.db")
 
 
 # ----------------------------------------------------------------- plans
@@ -164,8 +178,18 @@ def plans_for(root: pathlib.Path, header: list[str], rows: int, digest: str,
         {"id": "has-invoice", "type": "pdf_text_contains", "path": "report.pdf",
          "contains": "Invoice", "proves": "the document contains its invoice heading"},
     ])
+    records = plan_body(root, "records: the message is actually in the system of record", [
+        {"id": "message-66", "type": "sqlite_query", "path": "dc.db",
+         "query": "select count(*) from messages where id = ? and sent = 1",
+         "params": [66], "expect": {"equals": 1},
+         "proves": "message 66 exists and is marked sent"},
+        {"id": "message-143", "type": "sqlite_query", "path": "dc.db",
+         "query": "select count(*) from messages where id = ? and sent = 1",
+         "params": [143], "expect": {"equals": 1},
+         "proves": "message 143 exists and is marked sent"},
+    ])
     return {"narrow": rows_only, "structural": structural, "strict": strict,
-            "documents": documents}
+            "documents": documents, "records": records}
 
 
 # ----------------------------------------------------------------- defects
@@ -245,6 +269,22 @@ def defects(csv_text: str, header: list[str]) -> dict[str, callable]:
         # text the plan asserts was still present and the "defect" caught nothing.
         (r / "report.pdf").write_bytes(make_pdf(["Quarterly summary", "Terms and conditions"]))
 
+    def db_row_missing(r: pathlib.Path) -> None:
+        import sqlite3
+
+        conn = sqlite3.connect(r / "dc.db")
+        conn.execute("delete from messages where id = 66")
+        conn.commit()
+        conn.close()
+
+    def db_flag_never_set(r: pathlib.Path) -> None:
+        import sqlite3
+
+        conn = sqlite3.connect(r / "dc.db")
+        conn.execute("update messages set sent = 0 where id = 143")
+        conn.commit()
+        conn.close()
+
     def pdf_wrong_page_size(r: pathlib.Path) -> None:
         (r / "report.pdf").write_bytes(make_pdf(["Invoice 2026-11", "Terms and conditions"],
                                                 size=(612, 792)))
@@ -263,6 +303,8 @@ def defects(csv_text: str, header: list[str]) -> dict[str, callable]:
         "export: extra image": image_added,
         "export: pixels changed, same dims": image_pixels_changed,
         "export: wrong dimensions": image_wrong_dims,
+        "db: message row missing": db_row_missing,
+        "db: sent flag never set": db_flag_never_set,
         "pdf: page dropped": pdf_drop_page,
         "pdf: heading text missing": pdf_lose_text,
         "pdf: wrong page size (Letter, not A4)": pdf_wrong_page_size,
@@ -282,7 +324,16 @@ def benign(csv_text: str) -> dict[str, callable]:
     def trailing_blank_line(r: pathlib.Path) -> None:
         (r / CSV_NAME).write_text(csv_text.rstrip("\n") + "\n\n")
 
+    def db_unrelated_message(r: pathlib.Path) -> None:
+        import sqlite3
+
+        conn = sqlite3.connect(r / "dc.db")
+        conn.execute("insert into messages (id, sent, body) values (999, 1, 'unrelated')")
+        conn.commit()
+        conn.close()
+
     return {
+        "db: unrelated message added": db_unrelated_message,
         "csv: CRLF line endings": crlf,
         "csv: same rows, reversed order": shuffled_rows,
         "csv: trailing blank line": trailing_blank_line,
@@ -407,14 +458,17 @@ def main() -> int:
           f"proofops {summary['proofops_version']} · bench {summary['bench_script_sha256']}")
 
     # Each defect is expected to be caught by the plan that actually asserts something about
-    # it: the strict plan for data/export defects, the documents plan for PDF defects.
-    data_defects = [r for r in per_defect if not r["defect"].startswith("pdf:")]
-    pdf_defects = [r for r in per_defect if r["defect"].startswith("pdf:")]
+    # it. A defect no plan asserts on is not "caught" by another plan's luck.
+    owners = {
+        "strict": [r for r in per_defect if r["defect"].startswith(("csv:", "export:"))],
+        "documents": [r for r in per_defect if r["defect"].startswith("pdf:")],
+        "records": [r for r in per_defect if r["defect"].startswith("db:")],
+    }
     ok = (all(v == "PASS" for v in baseline.values())
-          and all(r["caught_by"]["strict"]["caught"] for r in data_defects)
-          and all(r["caught_by"]["documents"]["caught"] for r in pdf_defects)
-          and false_alarm["structural"] == 0 and false_alarm["documents"] == 0
-          and false_alarm["narrow"] == 0)
+          and all(all(r["caught_by"][plan]["caught"] for r in rows)
+                  for plan, rows in owners.items())
+          and all(false_alarm[p] == 0
+                  for p in ("narrow", "structural", "documents", "records")))
     print("\nbench:", "PASS" if ok else "REVIEW")
     return 0 if ok else 1
 

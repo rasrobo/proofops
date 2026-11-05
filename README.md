@@ -91,6 +91,7 @@ Supported check types:
 | process | `command_exit` (fenced twice — see below) |
 | deliverable | `file_exists`, `file_sha256`, `dir_manifest`, `csv_stats`, `image_size` |
 | document | `pdf_pages`, `pdf_page_size`, `pdf_text_contains` |
+| record | `sqlite_query` — read-only, single SELECT/WITH, against a database inside `allowed_paths` |
 
 Deliverable checks answer the claims a demo never shows: the export that lost a file, the CSV
 that parses and is short, the images that are the wrong size. They are fenced by
@@ -254,9 +255,9 @@ Identical revisions: the plan was not weakened between runs.
 ## Status
 
 Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
-stdlib-only engine: 5 plans, plan loading, thirteen check types, command checks fenced twice,
+stdlib-only engine: 5 plans, plan loading, fourteen check types, command checks fenced twice,
 path-fenced deliverable, document and process checks, sealed and optionally signed receipts,
-allowlist enforcement, CLI, and a defect-injection benchmark. 79 tests. Deliberately not built: authenticated HTTP
+allowlist enforcement, CLI, and a defect-injection benchmark. 93 tests. Deliberately not built: authenticated HTTP
 and browser flows, plan composition, and any UI.
 
 ## What does it actually catch? (`bench/run_bench.py`)
@@ -264,15 +265,16 @@ and browser flows, plan composition, and any UI.
 A verifier's honest question about itself is not "do my checks pass" but "what is my detection
 rate, and what do I flag when nothing is wrong". The benchmark answers both against a corpus
 whose ground truth is known by construction: a real public CSV (194 countries, 194 rows), a
-deterministic image export and a two-page PDF, with **16 defects injected one at a time** and
-**3 benign changes** applied to a clean copy.
+deterministic image export, a two-page PDF and a seeded SQLite system of record, with **18
+defects injected one at a time** and **4 benign changes** applied to a clean copy.
 
 ```
   plan              defects caught   benign changes flagged
-  narrow                 3/16                0/3
-  structural            12/16                0/3
-  strict                13/16                3/3
-  documents              3/16                0/3     (the 3 PDF defects, all caught)
+  narrow                 3/18                0/4
+  structural            12/18                0/4
+  strict                13/18                3/4
+  documents              3/18                0/4     (the 3 PDF defects)
+  records                2/18                0/4     (both "the message landed" defects)
 ```
 
 The point is the trade-off, not a winner:
@@ -285,6 +287,10 @@ The point is the trade-off, not a winner:
   whose size did not — structure is not content — and it asserts nothing at all about the PDF.
 * **documents** (page count, page size, text landmarks) catches all three PDF defects with no
   false alarms. It says nothing about the CSV: a plan is only as wide as the claims it makes.
+* **records** (read the system of record) catches both database defects — a message row that
+  was never written, and one written but never marked sent — and ignores an unrelated message
+  added to the same table. This is the check a "sent" claim needs, because a status code cannot
+  see a missing row.
 * **strict** (byte-exact checksums) catches everything, and also flags a file that was merely
   re-saved with CRLF endings, reordered rows, or given a trailing newline. Exactness is a
   choice about what you are promising, not a higher grade of verification.
