@@ -1,4 +1,6 @@
 receipts/
+bench/corpus/
+bench/latest.json
 __pycache__/
 *.pyc
 .venv/

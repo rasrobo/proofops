@@ -50,6 +50,24 @@ def load(path: str | pathlib.Path) -> dict:
     if has_http and not plan["allowed_origins"]:
         raise PlanError("plan has HTTP checks but declares no allowed_origins")
 
+    # File reads are fenced the same way origins are: a plan that reads deliverables must
+    # name the roots it may read, and every path it asks for must stay inside them.
+    from .checks import FILE_CHECK_TYPES  # lazy: keeps plan.py free of the check modules
+
+    has_file = any(c.get("type") in FILE_CHECK_TYPES for c in plan["checks"])
+    if has_file:
+        roots = plan.get("allowed_paths")
+        if not isinstance(roots, list) or not roots:
+            raise PlanError("plan has file checks but declares no allowed_paths")
+        for root in roots:
+            if not isinstance(root, str) or not root.startswith("/"):
+                raise PlanError(f"allowed_paths entries must be absolute: {root!r}")
+    for c in plan["checks"]:
+        if c.get("type") in FILE_CHECK_TYPES:
+            p = c.get("path")
+            if not isinstance(p, str) or not p or p.startswith("/") or ".." in pathlib.PurePath(p).parts:
+                raise PlanError(f"check '{c['id']}' path must be relative and stay inside the roots: {p!r}")
+
     for c in plan["checks"]:
         if "type" not in c or "id" not in c:
             raise PlanError(f"check needs 'id' and 'type': {c}")

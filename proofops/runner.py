@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import datetime
 
+from . import artifacts as artifacts_mod
 from . import checks as checks_mod
 from . import commands as commands_mod
 from . import plan as plan_mod
@@ -35,6 +36,9 @@ def execute(
         enabled=bool(allow_commands),
         allowed=tuple(plan.get("allowed_commands") or ()),
     ))
+    # File reads are fenced by the plan's own declared roots, exactly like origins: a copied
+    # plan cannot be redirected at a home directory by editing one string.
+    artifacts_mod.set_policy(artifacts_mod.PathPolicy(tuple(plan.get("allowed_paths") or ())))
 
     results = []
     for spec in plan["checks"]:

@@ -84,7 +84,20 @@ After a database rebuild, a simple comparison said "182 of 182 tables — identi
 deeper inspection found **39 structural differences**, including a column that had changed
 size and timestamps that had stopped being mandatory. Same furniture, different wiring.
 
-**3. The inspection caught its own author.**
+**3. The benchmark, not the demo, is the evidence.**
+We inject known defects into a copy of a real dataset — 13 of them, one at a time — and count
+what each quality of check catches:
+
+| the plan you wrote | defects caught | false alarms on unchanged-but-reformatted files |
+|---|---|---|
+| row count only ("the export looks fine") | 3 of 13 | 0 |
+| rows + header + nulls + inventory + dimensions | 12 of 13 | 0 |
+| byte-exact checksums | 13 of 13 | 3 |
+
+That is the product in one table: a weak plan is not a lie, it is a promise about less. The
+tool's job is to make that difference visible before someone signs off on it.
+
+**4. The inspection caught its own author.**
 The first version of that check was mine, and it passed. The stricter check disproved my
 own claim. That is the behaviour you want from a verifier: it is not loyal to the person
 who wrote it.
@@ -129,9 +142,10 @@ than none, because it buys false confidence.
 
 ## Status
 
-Working software: five inspection plans, a receipt for every run (18 at the time of
-writing, three of them fixture runs from the demonstration), and its own suite of 50
-automated tests. Development so far has been applied to our live SaaS platform: deployments,
+Working software: ten check types (live services, process, and deliverables such as CSV shape,
+image dimensions and exact file bytes), five inspection plans, a receipt for every run, a
+defect-injection benchmark with published detection and false-alarm rates, and its own suite of
+69 automated tests. Development so far has been applied to our live SaaS platform: deployments,
 configuration, database rebuilds and schema fidelity.
 
 The immediate next step is extending coverage to the workflows where a premature "done"
