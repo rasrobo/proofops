@@ -19,6 +19,7 @@ import sys
 
 from . import integrity as integrity_mod
 from . import newplan as newplan_mod
+from . import metrics as metrics_mod
 from . import plan as plan_mod
 from . import receipt as receipt_mod
 from . import runner
@@ -67,6 +68,40 @@ def cmd_verify(args) -> int:
     print("  What this does NOT prove: that the checks were run honestly, that the plan was "
           "adequate, or that the observer is truthful. It proves the file is unchanged.")
     return {"valid": 0, "tampered": 1}.get(verdict, 2)
+
+
+def cmd_stats(args) -> int:
+    """Local only: what this machine's own receipts add up to. No network, ever."""
+    print(metrics_mod.stats_report(pathlib.Path(args.receipts)))
+    return 0
+
+
+def cmd_share(args) -> int:
+    """Show the exact payload, then send it only if consent was recorded."""
+    receipts = pathlib.Path(args.receipts)
+    if args.enable:
+        metrics_mod.set_consent(True, args.endpoint)
+        print(f"sharing enabled -> {metrics_mod.consent()['endpoint']}")
+    if args.disable:
+        metrics_mod.set_consent(False, args.endpoint)
+        print("sharing disabled — nothing will be sent")
+
+    if args.dry_run or not args.enable:
+        print(metrics_mod.payload_bytes(receipts).decode())
+        if not args.enable and not args.disable:
+            print("\nNothing sent. This is `--dry-run` behaviour unless you pass --enable.")
+        return 0
+
+    try:
+        res = metrics_mod.send(receipts, args.endpoint)
+    except PermissionError as e:
+        print(f"refused: {e}", file=sys.stderr)
+        return 2
+    except Exception as e:  # network problems are not the payload's fault
+        print(f"send failed: {e}", file=sys.stderr)
+        return 2
+    print(f"sent {res['sent_bytes']} bytes -> HTTP {res['status']}")
+    return 0
 
 
 def cmd_show(args) -> int:
@@ -154,6 +189,18 @@ def main(argv=None) -> int:
     l = sub.add_parser("list", help="list plans in a directory")
     l.add_argument("--plans", default="plans")
     l.set_defaults(fn=cmd_list)
+
+    st = sub.add_parser("stats", help="what your own receipts add up to (local only)")
+    st.add_argument("--receipts", default="receipts")
+    st.set_defaults(fn=cmd_stats)
+
+    sh = sub.add_parser("share", help="show, and opt in to sending, the anonymous usage aggregate")
+    sh.add_argument("--receipts", default="receipts")
+    sh.add_argument("--dry-run", action="store_true", help="print the payload and send nothing")
+    sh.add_argument("--enable", action="store_true", help="record consent and send")
+    sh.add_argument("--disable", action="store_true", help="forget consent")
+    sh.add_argument("--endpoint", default=None)
+    sh.set_defaults(fn=cmd_share)
 
     args = ap.parse_args(argv)
     return args.fn(args)

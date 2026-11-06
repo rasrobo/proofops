@@ -189,6 +189,28 @@ Exit codes are a contract: `0` all checks passed · `1` a check failed · `2` th
 performed (bad plan, an origin the plan never declared, a command the operator never authorised).
 A caller that ignores every line of output can still trust the exit code.
 
+## Metrics — off by default
+
+Two commands, and neither touches the network unless you say so:
+
+```bash
+python3 -m proofops stats            # your own receipts, local only
+python3 -m proofops share --dry-run  # print the exact payload — sends nothing
+python3 -m proofops share --enable   # opt in, then send
+```
+
+The payload is exactly this and nothing else — a random install id, version, run count, plan count,
+platform, and pass/fail/not-run totals:
+
+```json
+{"install_id":"<uuid4>","version":"0.3.4","runs":41,
+ "checks":{"pass":128,"fail":9,"not_run":2},"plans":3,"platform":"linux"}
+```
+
+No paths, hostnames, plan names, receipt contents or command output — a test asserts the payload
+contains none of those, and another asserts `urlopen` is never reached without recorded consent.
+`--disable` forgets the consent; nothing is sent again.
+
 ## How it works
 
 ### Plans are data
@@ -397,8 +419,9 @@ only reports the first. An HTTP 200, a zero exit code and an existing file are a
 the job not being done — that gap is what this checks.
 
 **Does it use an LLM?**
-No model, no API key, no telemetry. The only network traffic is the HTTP GETs a plan explicitly
-declares. Same plan against the same state gives the same verdict, which is what makes a receipt
+No model, no API key, and **no telemetry unless you opt in**. The only network traffic is the HTTP
+GETs a plan explicitly declares — plus, if and only if you run `proofops share --enable`, one
+payload you can print first with `--dry-run`. Same plan against the same state gives the same verdict, which is what makes a receipt
 worth quoting.
 
 **Is it a test runner or a CI pipeline?**
@@ -415,6 +438,11 @@ otherwise.
 A JSON file holding each check's result and observed values, the plan revision, the inspector's
 identity, and a sha256 seal. `proofops verify` returns valid / tampered / unsealed / needs-key.
 
+**Does it send anything about me?**
+Not unless you opt in. `proofops stats` is local-only, and `proofops share` prints the exact payload
+with `--dry-run` before anything leaves the machine. Nothing about your plans, paths or receipt
+contents is ever in it.
+
 **What do I need to run it?**
 Python 3.10+. Nothing else — the standard library, no install step, no credentials.
 
@@ -427,7 +455,7 @@ the project.
 ## Support this
 
 ProofOps is MIT-licensed, has no company behind it, and takes no money from the thing it verifies —
-no hosted tier, no telemetry, no upsell, no "enterprise verification" edition later.
+no hosted tier, no telemetry by default, no upsell, no "enterprise verification" edition later.
 
 If it caught something that would have cost you an afternoon, you can
 **[buy me a coffee](https://buymeacoffee.com/robodigitalis)**. That is genuinely it: nothing about

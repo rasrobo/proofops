@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>ProofOps — measured use</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Opt-in, aggregate usage of ProofOps: installs, runs verified and checks observed. No customer names, paths or hostnames — the payload is published with the tool.">
+<style>
+  :root{
+    --bg:#0b0f15; --panel:#121826; --line:#1f2937; --text:#e6edf3; --dim:#8b98ac;
+    --green:#4ade80; --red:#f87171; --amber:#fbbf24; --blue:#60a5fa;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+       line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:56px 24px 80px}
+  .eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--dim);margin-bottom:10px}
+  h1{font-size:2.1rem;line-height:1.15;margin:0 0 10px;letter-spacing:-.02em}
+  .sub{color:var(--dim);max-width:62ch;margin:0 0 36px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .card .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  .card .v{font-family:var(--mono);font-size:2rem;font-weight:600;margin-top:8px;font-variant-numeric:tabular-nums}
+  .card .n{font-size:.78rem;color:var(--dim);margin-top:4px}
+  .bars{margin:34px 0 8px}
+  .bar{height:14px;border-radius:7px;background:var(--line);display:flex;overflow:hidden}
+  .bar span{display:block;height:100%}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:.75rem;color:var(--dim)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  h2{font-size:.8rem;font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase;
+     color:var(--dim);margin:44px 0 12px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.85rem}
+  th,td{text-align:left;padding:9px 0;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:500;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .note{margin-top:46px;padding:18px 20px;border:1px solid var(--line);border-radius:14px;
+        background:var(--panel);font-size:.9rem;color:var(--dim)}
+  .note b{color:var(--text);font-weight:600}
+  a{color:var(--blue);text-decoration:none} a:hover{text-decoration:underline}
+  .empty{font-family:var(--mono);color:var(--dim);padding:28px 0}
+  @media (max-width:600px){h1{font-size:1.6rem}.card .v{font-size:1.5rem}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">ProofOps · measured use</div>
+  <h1>The numbers, from the people who opted in</h1>
+  <p class="sub">Every figure here arrived through <code>proofops share --enable</code> — an explicit
+  opt-in that prints the exact payload first. Installs that never opt in are simply not counted,
+  which is the honest denominator: this page reports its own coverage, not the internet's.</p>
+
+  <div class="grid" id="stats"></div>
+
+  <div class="bars">
+    <div class="bar" id="bar"><span style="width:0"></span></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <h2>Versions in use</h2>
+  <table><thead><tr><th>version</th><th class="n">installs</th></tr></thead><tbody id="versions"></tbody></table>
+
+  <h2>Platforms</h2>
+  <table><thead><tr><th>platform</th><th class="n">installs</th></tr></thead><tbody id="platforms"></tbody></table>
+
+  <div class="note">
+    <b>What this page proves.</b> That this many installs opted in and reported these cumulative
+    counts. It does not prove the counts are true, that the work verified was important, or that a
+    single defect was caught — a check that passes is not a defect avoided.
+    <br><br>
+    <b>What it can never contain.</b> No customer names, no repository or file paths, no hostnames,
+    no plan names, no receipt contents, no command output, no email addresses. The payload is six
+    fields with an allow-listed version and platform; the sanitizer that enforces it is tested, and
+    the server refuses anything else.
+    <br><br>
+    <span id="meta">Loading…</span>
+  </div>
+</div>
+
+<script>
+const fmt = n => (n === null || n === undefined) ? '—' : n.toLocaleString();
+async function main(){
+  let d;
+  try {
+    const r = await fetch('./data.json', {cache:'no-store'});
+    if (!r.ok) throw new Error(r.status);
+    d = await r.json();
+  } catch (e) {
+    document.getElementById('stats').innerHTML =
+      '<div class="card"><div class="k">status</div><div class="empty">no report published yet</div></div>';
+    document.getElementById('meta').textContent = 'data.json not found — run scripts/publish_metrics.py';
+    return;
+  }
+  const c = d.checks || {};
+  const cards = [
+    ['installs', fmt(d.installs), 'opted in'],
+    ['runs verified', fmt(d.runs), 'receipts written'],
+    ['checks observed', fmt(d.total_checks), 'pass + fail + not run'],
+    ['pass rate', d.pass_rate === null ? '—' : d.pass_rate + '%', 'of observed checks'],
+  ];
+  document.getElementById('stats').innerHTML = cards.map(([k,v,n]) =>
+    `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join('');
+
+  const total = (c.pass||0)+(c.fail||0)+(c.not_run||0);
+  const pct = x => total ? (100*x/total) : 0;
+  const bar = document.getElementById('bar');
+  bar.innerHTML = total
+    ? `<span style="width:${pct(c.pass)}%;background:var(--green)"></span>
+       <span style="width:${pct(c.fail)}%;background:var(--red)"></span>
+       <span style="width:${pct(c.not_run)}%;background:var(--amber)"></span>`
+    : `<span style="width:100%;background:var(--line)"></span>`;
+  document.getElementById('legend').innerHTML =
+    `<span><i class="dot" style="background:var(--green)"></i>${fmt(c.pass)} passed</span>
+     <span><i class="dot" style="background:var(--red)"></i>${fmt(c.fail)} failed</span>
+     <span><i class="dot" style="background:var(--amber)"></i>${fmt(c.not_run)} not run</span>`;
+
+  const rows = (obj, id) => {
+    const el = document.getElementById(id);
+    const entries = Object.entries(obj || {});
+    el.innerHTML = entries.length
+      ? entries.map(([k,v]) => `<tr><td>${k}</td><td class="n">${fmt(v)}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="color:var(--dim)">no data yet</td></tr>';
+  };
+  rows(d.versions, 'versions');
+  rows(d.platforms, 'platforms');
+
+  document.getElementById('meta').textContent =
+    `Generated ${d.generated_at || 'unknown'} · source: ${d.source || 'opt-in aggregate'} · ` +
+    `payload schema: install_id, version, platform, runs, plans, checks{pass,fail,not_run}.`;
+}
+main();
+</script>

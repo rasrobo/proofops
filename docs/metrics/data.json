@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-11-06T23:52:42+00:00",
+  "installs": 0,
+  "runs": 0,
+  "checks": {
+    "pass": 0,
+    "fail": 0,
+    "not_run": 0
+  },
+  "total_checks": 0,
+  "pass_rate": null,
+  "versions": {},
+  "platforms": {},
+  "source": "self-reported by operators who ran `proofops share --enable`"
+}
