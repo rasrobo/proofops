@@ -1,4 +1,39 @@
-# Submission form — the text to paste
+# Submission — what the organisers ask for
+
+**Deadline: 11 November 2026, 17:00 EST.** Three things, in this order. Only two of them need you.
+
+| # | the ask | status |
+|---|---|---|
+| 1 | Open a pull request adding the plugin to the Hermes catalogue | **done** — [PR #149625](https://github.com/NousResearch/hermes-agent/pull/149625), open and mergeable |
+| 2 | Post a demo **on X, under 90 seconds, tagging @NousResearch** | **yours** — copy below, video is 50 s |
+| 3 | Submit both links through the organiser's form | **yours** — paste the form link here and the answers below drop straight in |
+
+The X post is not optional and a YouTube link alone does not satisfy it: the rules ask for the
+demo posted on X. It has to come from your account, because it is judged as your entry.
+
+## The X post (paste this, then reply with the second block)
+
+```
+ProofOps: a Hermes plugin that checks whether “done” is true.
+
+CI caught it catching itself: a check that passed on one machine, failed on another. Every run leaves a sealed receipt — what was verified, and what wasn’t.
+
+50s: youtu.be/ICv8_FWWST8 #HermesAgent
+```
+
+Reply to your own post with:
+
+```
+The numbers ship with the tool: a row-count plan catches 3 of 22 injected defects. Checksums catch 13 of 22 — and raise 3 false alarms on files that were only reformatted.
+
+116 tests, CI green. @NousResearch catalogue PR: github.com/NousResearch/hermes-agent/pull/149625
+```
+
+Before posting, make the video public: YouTube Studio → the video → Details → Visibility → Public.
+
+---
+
+# Form answers — the text to paste
 
 Every field below is ready to copy. Figures are from the frozen release; the pin and the version
 are the ones in the catalogue entry.
