@@ -1,5 +1,7 @@
 # ProofOps
 
+[![verify](https://github.com/rasrobo/proofops/actions/workflows/verify.yml/badge.svg)](https://github.com/rasrobo/proofops/actions/workflows/verify.yml)
+
 ### Your agent said "done". This is the receipt that proves it — or shows you the gap.
 
 Every plugin makes an agent **do** more. ProofOps makes it **prove** it.
@@ -52,27 +54,41 @@ comparison cannot be faked by editing the test.
 
 It does not make your work correct. It makes your claim **auditable**.
 
-## See it in 20 seconds
-
-No dependencies, nothing on your machine is touched:
+## Start here — one command, under two seconds
 
 ```bash
-python3 fixtures/readiness_server.py 8099 &          # disposable readiness endpoint
-
-python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
-#   -> PASS 4/4
-
-sed -i 's/"status": "ok"/"status": "degraded"/' fixtures/state.json
-python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
-#   -> FAIL 3/4   observed {"expected": "ok", "observed": "degraded", "http_status": 200}
-
-sed -i 's/"status": "degraded"/"status": "ok"/' fixtures/state.json
-python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
-#   -> PASS 4/4
+DEMO_FAST=1 ./demo/run_demo.sh      # without DEMO_FAST it pauses between acts so you can read
 ```
 
-All three receipts carry plan revision `sha256:eb01b6d884f0b144`. Identical revisions are what
-prove the plan was not loosened to get the green.
+Starts a throwaway endpoint on loopback, runs a four-check plan against it (**PASS 4/4**), injects
+one defect, re-runs the *same* plan (**FAIL 3/4**), repairs it, re-runs (**PASS 4/4**). Measured:
+`real 0m1.638s`. Real output, last lines:
+
+```
+  same plan revision in all three runs:
+    PO-20261106T021707Z-0e2a  PASS       4/4  sha256:eb01b6d884f0b144
+    PO-20261106T021707Z-614f  FAIL       3/4  sha256:eb01b6d884f0b144
+    PO-20261106T021707Z-7a4d  PASS       4/4  sha256:eb01b6d884f0b144
+    identical revision: True
+```
+
+Three things to look at:
+
+- the **FAIL still returns HTTP 200** — a status check calls that healthy, this does not
+- every receipt prints what it did **not** check, in the run that passed too
+- the plan revision is identical across PASS, FAIL and PASS — the green was not bought by
+  loosening a check
+
+### What you need, and whether it is safe to run
+
+Python 3.10+. Nothing to install, no key, no account, no network beyond what a plan declares.
+
+- **Reads only.** There is no POST, PUT or DELETE anywhere in the code. GETs go only to origins the
+  plan lists — the demo's plan allows exactly `127.0.0.1:8099`.
+- **Writes one thing:** `receipts/`, under the working directory.
+- **Commands need two keys:** the plan lists the command verbatim *and* you pass
+  `--allow-commands`. Neither alone is enough.
+- **Touches nothing of yours:** the demo runs against a disposable fixture in the repo.
 
 ## When you would reach for it
 
@@ -88,21 +104,51 @@ below the report.
 | "the rebuild is identical" | no errors | 181/181 tables match, 39 structural drifts |
 | "the tests pass" | exit 0 | 2 of 3 shards green, 1 never ran |
 
-## 60 seconds, on your own files
+## Then point it at a folder of your own
+
+Two commands, on a real directory, with real output:
 
 ```bash
-python3 -m proofops new --dir ~/exports            # writes ~/exports/proofops-plan.json
-python3 -m proofops run ~/exports/proofops-plan.json --target local
-python3 -m proofops verify receipts/PO-….json      # is the receipt still the one that was written?
+python3 -m proofops new --dir /tmp/readme-demo        # inspect, write a plan — executes nothing
+python3 -m proofops run /tmp/readme-demo/proofops-plan.json --target local
 ```
 
-`new` inspects what is actually in the directory — CSV row/column/null counts, image dimensions,
-PDF page counts, SQLite table counts, a directory inventory with per-file hashes — and writes a
-plan asserting **the shape it has right now**. It reads only, executes nothing, and the plan is
-plain JSON you can edit. Remove one row afterwards and the same plan fails.
+```
+wrote /tmp/readme-demo/proofops-plan.json
+  checks   csv-data, inventory-images
+  next     python3 -m proofops run /tmp/readme-demo/proofops-plan.json --target local
+```
 
-[`docs/PLANS.md`](docs/PLANS.md) has copy-paste recipes when you want a plan the generator would
-not write for you.
+```
+ProofOps run PO-20261106T021722Z-49f9 pass:
+  plan      readme-demo as it is today (sha256:b75e2c2b5da137d9)
+  [PASS] csv-data: data.csv has the rows, header and complete cells it has today
+  [PASS] inventory-images: images/ still contains exactly the 2 files it has today, unchanged
+  Not verified:
+    - that the contents are correct, only that they match what was recorded today
+    - that anything outside this plan was checked
+```
+
+Delete one row, run the same command again, change nothing else:
+
+```
+ProofOps run PO-20261106T021724Z-c713 fail:
+  [FAIL] csv-data: data.csv has the rows, header and complete cells it has today
+         observed: rows expected 3, got 2
+```
+
+That is the whole product in four lines: a claim, the evidence, the gap, and a number you can act
+on. `new` reads CSV shape, image dimensions, PDF page counts, SQLite table counts and a per-file
+directory inventory; it never runs anything and the plan is plain JSON you can edit.
+
+[`docs/PLANS.md`](docs/PLANS.md) has copy-paste recipes for when you want a plan the generator would
+not write for you — "the message landed", "the report went out", "the tests ran".
+
+### Is the receipt still the receipt?
+
+```bash
+python3 -m proofops verify receipts/PO-….json      # valid / tampered / unsealed / needs-key
+```
 
 ## Install
 
@@ -323,6 +369,12 @@ first-class check rather than through `psql`.
 
 **Deliberately not built:** authenticated HTTP, browser journeys, plan composition, and any UI.
 ProofOps does not repair anything, and does not claim to.
+
+## If something here is wrong
+
+Open an issue. Every number in this README is reproducible with the command beside it, and a
+figure that has stopped being true is a bug — catching bugs of exactly that kind is the point of
+the project.
 
 ## Provenance
 
