@@ -5,7 +5,7 @@
 | # | the ask | status |
 |---|---|---|
 | 1 | Open a pull request adding the plugin to the Hermes catalogue | **done** — [PR #149625](https://github.com/NousResearch/hermes-agent/pull/149625), open and mergeable |
-| 2 | Post a demo **on X, under 90 seconds, tagging @NousResearch** | **yours** — copy below, video is 50 s |
+| 2 | Post a demo **on X, under 90 seconds, tagging @NousResearch** | **yours** — copy below, video is 74 s |
 | 3 | Submit both links through the organiser's form | **yours** — paste the form link here and the answers below drop straight in |
 
 The X post is not optional and a YouTube link alone does not satisfy it: the rules ask for the
@@ -18,7 +18,7 @@ ProofOps: a Hermes plugin that checks whether “done” is true.
 
 CI caught it catching itself: a check that passed on one machine, failed on another. Every run leaves a sealed receipt — what was verified, and what wasn’t.
 
-50s: youtu.be/ICv8_FWWST8 #HermesAgent
+74s: youtu.be/3ee1VbHZpXo #HermesAgent
 ```
 
 Reply to your own post with:
@@ -44,7 +44,7 @@ are the ones in the catalogue entry.
 | Repository | https://github.com/rasrobo/proofops |
 | Catalogue PR | https://github.com/NousResearch/hermes-agent/pull/149625 |
 | Pinned commit | `b987b51e4f318b5aa486501010a4cfc47152bc6c` (version 0.3.3) |
-| Demo video | https://youtu.be/kfVNsusOqdQ (50 s, limit is 90 s) |
+| Demo video | https://youtu.be/3ee1VbHZpXo (74 s, limit is 90 s) |
 | X post | the thread tagging @NousResearch, `#HermesAgent` |
 
 ## One line
