@@ -95,12 +95,17 @@ def _plans(args: dict, **_kw) -> str:
         except plan_mod.PlanError as e:
             out.append({"file": str(p), "invalid": str(e)})
             continue
+        needs_commands = any(c.get("type") == "command_exit" for c in plan["checks"])
         out.append({
             "file": str(p),
             "name": plan["name"],
             "revision": plan["_revision"],
             "target_kind": plan["target_kind"],
             "checks": len(plan["checks"]),
+            # Say up front which plans need the operator to opt into running commands, so
+            # nobody discovers NOT RUN by surprise after the fact.
+            "run_mode": "needs_allow_commands" if needs_commands else "read_only",
+            "requires": ["allow_commands"] if needs_commands else [],
             "does_not_prove": plan["does_not_prove"],
         })
     return json.dumps({"plans_dir": str(d), "plans": out}, indent=2)

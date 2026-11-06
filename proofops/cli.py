@@ -18,6 +18,7 @@ import pathlib
 import sys
 
 from . import integrity as integrity_mod
+from . import newplan as newplan_mod
 from . import plan as plan_mod
 from . import receipt as receipt_mod
 from . import runner
@@ -74,6 +75,12 @@ def cmd_show(args) -> int:
     return _exit_code(rec)
 
 
+def _run_mode(plan: dict) -> str:
+    """Say up front whether a plan needs the operator to opt into running commands."""
+    needs = any(c.get("type") == "command_exit" for c in plan["checks"])
+    return "needs --allow-commands" if needs else "read-only"
+
+
 def cmd_list(args) -> int:
     for p in sorted(pathlib.Path(args.plans).glob("*.json")):
         try:
@@ -82,7 +89,33 @@ def cmd_list(args) -> int:
             print(f"{p.name}: INVALID — {e}")
             continue
         print(f"{p.name:44} {plan['name']}")
-        print(f"{'':44} {plan['_revision']}  checks={len(plan['checks'])}  target_kind={plan['target_kind']}")
+        print(f"{'':44} {plan['_revision']}  checks={len(plan['checks'])}  "
+              f"target_kind={plan['target_kind']}  {_run_mode(plan)}")
+    return 0
+
+
+def cmd_new(args) -> int:
+    """Write a starter plan for a directory, using what is actually in it."""
+    try:
+        body = newplan_mod.build(args.dir, args.name)
+    except ValueError as e:
+        print(f"cannot build a plan: {e}", file=sys.stderr)
+        return 2
+
+    text = json.dumps(body, indent=2) + "\n"
+    if args.stdout:
+        print(text, end="")
+        return 0
+
+    out = pathlib.Path(args.out) if args.out else pathlib.Path(args.dir) / "proofops-plan.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if out.exists() and not args.force:
+        print(f"refusing to overwrite {out} (pass --force)", file=sys.stderr)
+        return 2
+    out.write_text(text)
+    print(f"wrote {out}")
+    print("  checks   " + ", ".join(c["id"] for c in body["checks"]))
+    print(f"  next     python3 -m proofops run {out} --target local")
     return 0
 
 
@@ -109,6 +142,14 @@ def main(argv=None) -> int:
     s = sub.add_parser("show", help="re-print a saved receipt")
     s.add_argument("receipt")
     s.set_defaults(fn=cmd_show)
+
+    n = sub.add_parser("new", help="write a starter plan for a directory")
+    n.add_argument("--dir", default=".")
+    n.add_argument("--name", default=None)
+    n.add_argument("--out", default=None)
+    n.add_argument("--stdout", action="store_true", help="print the plan instead of writing it")
+    n.add_argument("--force", action="store_true")
+    n.set_defaults(fn=cmd_new)
 
     l = sub.add_parser("list", help="list plans in a directory")
     l.add_argument("--plans", default="plans")

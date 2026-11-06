@@ -23,6 +23,23 @@ ProofOps run PO-20261104T231903Z-ff6b fail:
 That failure is the whole point: **HTTP 200 with `status=degraded`**. A monitor that only
 checks status codes calls that healthy.
 
+## 60 seconds, on your own files
+
+```bash
+python3 -m proofops new --dir ~/exports            # writes ~/exports/proofops-plan.json
+python3 -m proofops run ~/exports/proofops-plan.json --target local
+python3 -m proofops verify receipts/PO-….json      # is the receipt still the one that was written?
+```
+
+`new` inspects what is actually in the directory — CSV row/column/null counts, image dimensions,
+PDF page counts, SQLite table counts, a directory inventory with per-file hashes — and writes a
+plan asserting **the shape it has right now**. Nothing is executed, nothing leaves the machine,
+and the plan is plain JSON you can read and edit. Change one row afterwards and the same plan
+fails.
+
+If the generated plan is too narrow or too broad, [`docs/PLANS.md`](docs/PLANS.md) has copy-paste
+recipes for the common claims.
+
 ## Install and run
 
 No dependencies beyond the Python standard library.
@@ -260,7 +277,7 @@ Identical revisions: the plan was not weakened between runs.
 Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
 stdlib-only engine: 5 plans, plan loading, fourteen check types, command checks fenced twice,
 path-fenced deliverable, document and process checks, sealed and optionally signed receipts,
-allowlist enforcement, CLI, and a defect-injection benchmark. 95 tests. Deliberately not built: authenticated HTTP
+allowlist enforcement, CLI, and a defect-injection benchmark. 102 tests. Deliberately not built: authenticated HTTP
 and browser flows, plan composition, and any UI.
 
 ## What does it actually catch? (`bench/run_bench.py`)
