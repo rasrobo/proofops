@@ -159,6 +159,24 @@ run from looking like a green suite. Run it with `--allow-commands`.
 
 ---
 
+## Claims a plan cannot prove, however it is written
+
+Some claims sound like facts and are judgements. A plan can gather the evidence for them; it cannot
+establish them, and a receipt that implied otherwise would be the exact failure this tool exists to
+catch.
+
+| claim | what a plan can show | what it cannot |
+|---|---|---|
+| "the enquiries are legitimate" | a submission returned 200 and a row exists | whether a human sent it, or whether it is spam, a scam or a buyer |
+| "the copy is good" | the page contains the headline and the CTA | whether anyone reads, understands or acts |
+| "the tests are meaningful" | N tests ran, in M shards, with K passing | whether they assert anything worth asserting |
+| "the data is correct" | counts, headers, nulls and byte-identity match a baseline | whether the baseline was right |
+| "it is secure" | the header is present, the endpoint refuses an unauthenticated request | whether the control works |
+
+Write these as the observation plus a separate human judgement, and say so in `does_not_prove`.
+When an agent claims something is legitimate, valid, real or high quality, a receipt is evidence of
+the observation, not of the judgement.
+
 ## Writing your own
 
 1. **One claim per check.** A check named `everything` will be quoted as “everything”.

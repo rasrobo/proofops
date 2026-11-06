@@ -311,6 +311,12 @@ does *not* prove — that the checks were honest, or that the plan was adequate.
 *Done:* `claimable: false`, the `not_verified` list, and exit code `2` for a run that could not be
 performed. A refusal is a third outcome, never a pass and never a failure.
 
+**Judgement is not observable.** A plan can prove a page contains a contact form, that a submission
+returns 200, and that a row appeared. It cannot prove the submitter was human, that the enquiry was
+legitimate, or that anyone will answer it. "Legitimate", "valid", "real" and "quality" are
+judgements; a receipt records the observation underneath them, never the judgement itself. Do not
+cite one as if it did.
+
 **What remains:** ProofOps cannot prove the checks were run honestly, cannot cover authenticated
 flows or browser journeys, and cannot read scanned PDFs or CID fonts without ToUnicode. Those are
 named in every receipt rather than left to be discovered.
