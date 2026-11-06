@@ -33,7 +33,13 @@ Four tools — `proofops_plans`, `proofops_run`, `proofops_receipt`, `proofops_v
 bundled `verify-before-done` skill that tells the agent to run a plan before it writes "done".
 No hooks, no middleware, no core modification, no dependencies beyond Python's standard library.
 
-Getting started takes one command: `proofops new --dir <your directory>` inspects what is actually
+Install:
+
+```
+hermes plugins install https://github.com/rasrobo/proofops
+```
+
+Then getting started takes one command: `proofops new --dir <your directory>` inspects what is actually
 there (CSV shape, image dimensions, PDF page counts, SQLite table counts, directory inventory) and
 writes a plan asserting the shape it has now.
 

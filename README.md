@@ -61,7 +61,7 @@ The repository root is a loadable Hermes plugin (`plugin.yaml` + `__init__.py`):
 tools and one skill, no dependencies.
 
 ```bash
-hermes plugins install https://github.com/<owner>/proofops   # or: cp -r . ~/.hermes/plugins/proofops
+hermes plugins install https://github.com/rasrobo/proofops   # or: cp -r . ~/.hermes/plugins/proofops
 hermes plugins enable proofops
 hermes plugins validate ~/.hermes/plugins/proofops           # the catalog CI gate
 ```
