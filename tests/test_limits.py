@@ -148,9 +148,27 @@ class TestDatabaseLimits(unittest.TestCase):
     def test_a_non_database_file_is_reported_not_crashed(self):
         with Corpus() as c:
             c.p("fake.db").write_bytes(b"this is not sqlite at all" * 4)
+            # `select 1` touches no b-tree, so on some SQLite builds it returns a row from a
+            # file that is not a database at all - a verdict that would have depended on the
+            # library version. The connection now reads the schema page first, so this is
+            # deterministic: no database, no green tick.
             ok, ev = dbx.sqlite_query({"path": "fake.db", "query": "select 1"}, "local")
             self.assertFalse(ok)
-            self.assertTrue(ev.get("error"), ev)
+            self.assertIn("not a database", ev["error"])
+
+    def test_a_real_database_still_answers(self):
+        with Corpus() as c:
+            import sqlite3
+
+            conn = sqlite3.connect(c.p("ok.db"))
+            conn.execute("create table t (id integer)")
+            conn.executemany("insert into t values (?)", [(1,), (2,)])
+            conn.commit()
+            conn.close()
+            ok, ev = dbx.sqlite_query({"path": "ok.db",
+                                       "query": "select count(*) as n from t",
+                                       "expect": {"equals": 2}}, "local")
+            self.assertTrue(ok, ev)
 
     def test_a_write_is_refused_with_a_reason(self):
         with Corpus() as c:

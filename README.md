@@ -277,7 +277,7 @@ Identical revisions: the plan was not weakened between runs.
 Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
 stdlib-only engine: 5 plans, plan loading, fourteen check types, command checks fenced twice,
 path-fenced deliverable, document and process checks, sealed and optionally signed receipts,
-allowlist enforcement, CLI, and a defect-injection benchmark. 115 tests. Deliberately not built: authenticated HTTP
+allowlist enforcement, CLI, and a defect-injection benchmark. 116 tests. Deliberately not built: authenticated HTTP
 and browser flows, plan composition, and any UI.
 
 ## What does it actually catch? (`bench/run_bench.py`)

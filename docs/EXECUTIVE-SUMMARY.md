@@ -131,6 +131,15 @@ who wrote it.
 
 ---
 
+## Two things the limits suite caught
+
+- A UTF-8 BOM became part of the first column's name, so an honest Excel-style export failed a
+  header assertion for a cosmetic reason. `csv_stats` now reads `utf-8-sig`.
+- A `select 1` against a file that was not a database **passed on one SQLite build and failed on
+  another** — the query never reads a page, so the header check was never forced. A verdict that
+  depends on your library version is the exact class of unreliability this tool exists to remove.
+  Connections now read `PRAGMA schema_version` first, so the answer is the same everywhere.
+
 ## Honest limits
 
 - It only proves what a plan describes. It is not a guarantee of correctness.
@@ -148,7 +157,7 @@ than none, because it buys false confidence.
 Working software: fourteen check types (live services, process, deliverables such as CSV shape
 and image dimensions, and documents such as PDF page count and text landmarks), five inspection
 plans, a receipt for every run, a defect-injection benchmark with published detection and
-false-alarm rates, and its own suite of 115 automated tests. Development so far has been applied to our live SaaS platform: deployments,
+false-alarm rates, and its own suite of 116 automated tests. Development so far has been applied to our live SaaS platform: deployments,
 configuration, database rebuilds and schema fidelity.
 
 The immediate next step is extending coverage to the workflows where a premature "done"

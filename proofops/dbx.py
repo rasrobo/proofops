@@ -58,9 +58,18 @@ def sqlite_query(spec: dict, _target: str) -> tuple[bool, dict]:
     except sqlite3.Error as e:
         return False, {"path": path, "error": f"cannot open database: {e}"}
     try:
+        # Prove the file is a database before trusting any answer from it. A query like
+        # `select 1` touches no b-tree, so on some SQLite builds it succeeds against a file
+        # that is not a database at all - a green tick that depended on the SQLite version.
+        # PRAGMA schema_version reads the schema page, which forces the header check.
+        conn.execute("PRAGMA schema_version").fetchall()
         cur = conn.execute(query, list(spec.get("params") or []))
         columns = [d[0] for d in (cur.description or [])]
         rows = cur.fetchmany(MAX_ROWS + 1)
+    except sqlite3.DatabaseError as e:
+        reason = "file is not a database" if "not a database" in str(e).lower() else str(e)
+        return False, {"path": path, "query": query,
+                       "error": f"{type(e).__name__}: {reason}"}
     except sqlite3.Error as e:
         return False, {"path": path, "query": query, "error": f"{type(e).__name__}: {e}"}
     finally:
