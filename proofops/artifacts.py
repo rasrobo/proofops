@@ -169,7 +169,10 @@ def csv_stats(spec: dict, _target: str) -> tuple[bool, dict]:
     blank_rows = 0
     header: list[str] = []
     try:
-        with open(path, newline="", encoding="utf-8", errors="replace") as fh:
+        # utf-8-sig, not utf-8: a BOM at the head of an exported CSV otherwise becomes part of
+        # the first column's name, so an honest file fails a header assertion for a cosmetic
+        # reason. (Found by the adversarial-encoding tests.)
+        with open(path, newline="", encoding="utf-8-sig", errors="replace") as fh:
             reader = csv.reader(fh, delimiter=delimiter)
             header = next(reader, [])
             nulls = {c: 0 for c in header}

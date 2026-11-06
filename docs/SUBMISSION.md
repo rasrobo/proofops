@@ -31,7 +31,7 @@ reproduction, and no production dependency.
 | image dimensions | "the images are the size the client ordered" | PNG/GIF/JPEG header parse (no decode) | format and observed dimensions | dimensions only; not colour space, DPI metadata or visual content |
 | PDF deliverable | "the report shipped, with its words" | page count from the page tree, first-page MediaBox, literal text in content streams | pages + method, page size, extracted characters/snippet | text extraction fails on scanned pages and CID fonts without ToUnicode — reported as "cannot answer", not as "missing"; no rendering check |
 | destination of record | "the message was sent" | read-only SELECT against a SQLite database inside `allowed_paths`; assert row count or first value | query, params, rows returned, first row, mismatches | proves the row matches the assertion, not that the row is correct or that the write reached a replica; SQLite only — Postgres goes through `command_exit` + `psql` |
-| defect detection rate | "the checks work" | 18 injected defects + 4 benign changes in `bench/run_bench.py` | caught/flagged per plan strength | measure is about these defect classes; a defect class not injected is not measured |
+| defect detection rate | "the checks work" | 22 injected defects + 5 benign changes in `bench/run_bench.py` | caught/flagged per plan strength | measure is about these defect classes; a defect class not injected is not measured |
 
 ## 4. Executed runs (real receipts)
 
@@ -117,8 +117,8 @@ readiness document.
 | real failure → repair → pass, same revision | done |
 | gates that cannot be bypassed | done, counter-tested |
 | limitations stated per plan | done, enforced at load |
-| the tool's own tests | **done — 102 tests** |
-| published detection + false-alarm rates | **done — 3/18 · 12/18 · 13/18 · 3/18 · 2/18 by plan strength; 0 false alarms for structural, documents and records, 3 for strict** |
+| the tool's own tests | **done — 115 tests** |
+| published detection + false-alarm rates | **done — 3/22 · 12/22 · 13/22 · 3/22 · 2/22 · 4/22 by plan strength; 0 false alarms for structural, documents, records and the second dataset, 3 for strict** |
 | receipts cannot be edited undetected | **done — sealed sha256, optional HMAC, `verify` exits 0/1/2** |
 | receipts self-contained | done — plan body embedded |
 | project-local integration (`proofops/` in the target repo, AGENTS.md note) | **not done** |

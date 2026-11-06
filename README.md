@@ -277,24 +277,26 @@ Identical revisions: the plan was not weakened between runs.
 Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate` clean) over a
 stdlib-only engine: 5 plans, plan loading, fourteen check types, command checks fenced twice,
 path-fenced deliverable, document and process checks, sealed and optionally signed receipts,
-allowlist enforcement, CLI, and a defect-injection benchmark. 102 tests. Deliberately not built: authenticated HTTP
+allowlist enforcement, CLI, and a defect-injection benchmark. 115 tests. Deliberately not built: authenticated HTTP
 and browser flows, plan composition, and any UI.
 
 ## What does it actually catch? (`bench/run_bench.py`)
 
 A verifier's honest question about itself is not "do my checks pass" but "what is my detection
 rate, and what do I flag when nothing is wrong". The benchmark answers both against a corpus
-whose ground truth is known by construction: a real public CSV (194 countries, 194 rows), a
-deterministic image export, a two-page PDF and a seeded SQLite system of record, with **18
-defects injected one at a time** and **4 benign changes** applied to a clean copy.
+whose ground truth is known by construction: **two independently published CSVs**
+(194 countries; 891 passengers with 177/687/2 real nulls), a deterministic image export, a
+two-page PDF and a seeded SQLite system of record — with **22 defects injected one at a time**
+and **5 benign changes** applied to a clean copy.
 
 ```
   plan              defects caught   benign changes flagged
-  narrow                 3/18                0/4
-  structural            12/18                0/4
-  strict                13/18                3/4
-  documents              3/18                0/4     (the 3 PDF defects)
-  records                2/18                0/4     (both "the message landed" defects)
+  narrow                 3/22                0/5
+  structural            12/22                0/5
+  strict                13/22                3/5
+  documents              3/22                0/5     (the 3 PDF defects)
+  records                2/22                0/5     (both "the message landed" defects)
+  passengers             4/22                0/5     (the 4 second-dataset defects)
 ```
 
 The point is the trade-off, not a winner:
@@ -307,6 +309,9 @@ The point is the trade-off, not a winner:
   whose size did not — structure is not content — and it asserts nothing at all about the PDF.
 * **documents** (page count, page size, text landmarks) catches all three PDF defects with no
   false alarms. It says nothing about the CSV: a plan is only as wide as the claims it makes.
+* **passengers** (a second public dataset, whose nulls are real) catches all four of its
+  defects — a dropped row, a duplicate, a filled blank and a missing column — because it asserts
+  the null counts rather than a blanket "no nulls", which would be meaningless there.
 * **records** (read the system of record) catches both database defects — a message row that
   was never written, and one written but never marked sent — and ignores an unrelated message
   added to the same table. This is the check a "sent" claim needs, because a status code cannot

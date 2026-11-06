@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import pathlib
 import shutil
@@ -44,6 +45,10 @@ HERE = pathlib.Path(__file__).resolve().parent
 CORPUS = HERE / "corpus"
 CSV_URL = "https://raw.githubusercontent.com/cs109/2014_data/master/countries.csv"
 CSV_NAME = "countries.csv"
+# A second, independently published dataset whose real missing values make the null assertions
+# non-trivial: countries.csv has none, titanic.csv has 177 / 687 / 2.
+CSV2_URL = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
+CSV2_NAME = "titanic.csv"
 OUT = HERE / "latest.json"
 
 
@@ -64,16 +69,26 @@ def png_bytes(w: int, h: int, seed: int = 0) -> bytes:
             + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b""))
 
 
-def fetch_csv(offline: bool) -> tuple[pathlib.Path, str]:
+def fetch_csv(offline: bool, url: str = CSV_URL, name: str = CSV_NAME
+              ) -> tuple[pathlib.Path, str]:
     CORPUS.mkdir(parents=True, exist_ok=True)
-    dest = CORPUS / CSV_NAME
+    dest = CORPUS / name
     if dest.exists():
         return dest, f"cached {dest.relative_to(HERE.parent)}"
     if offline:
-        raise SystemExit("--offline and no cached corpus; run once with network")
-    with urllib.request.urlopen(CSV_URL, timeout=30) as r:
+        raise SystemExit(f"--offline and no cached {name}; run once with network")
+    with urllib.request.urlopen(url, timeout=30) as r:
         dest.write_bytes(r.read())
-    return dest, CSV_URL
+    return dest, url
+
+
+def csv_shape(text: str) -> tuple[list[str], int, dict[str, int]]:
+    """Rows, header and per-column nulls, counted from the file itself."""
+    rows = list(csv.reader(io.StringIO(text)))
+    header, body = rows[0], [r for r in rows[1:] if any(c.strip() for c in r)]
+    nulls = {h: sum(1 for r in body if i >= len(r) or r[i].strip() == "")
+             for i, h in enumerate(header)}
+    return header, len(body), nulls
 
 
 def make_pdf(pages: list[str], size: tuple[int, int] = (595, 842)) -> bytes:
@@ -119,10 +134,13 @@ def seed_mail_db(path: pathlib.Path) -> None:
     conn.close()
 
 
-def build_base(root: pathlib.Path, csv_src: pathlib.Path) -> None:
-    """The pristine deliverable: one real CSV plus a synthetic image export."""
+def build_base(root: pathlib.Path, csv_src: pathlib.Path,
+               csv2_src: pathlib.Path | None = None) -> None:
+    """The pristine deliverable: public data, a synthetic image export, a PDF, a database."""
     (root / "export").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(csv_src, root / CSV_NAME)
+    if csv2_src is not None:
+        shutil.copyfile(csv2_src, root / CSV2_NAME)
     for i, (w, h) in enumerate([(8, 6), (12, 9), (4, 4), (16, 12), (10, 10), (6, 8)]):
         (root / "export" / f"img_{i}.png").write_bytes(png_bytes(w, h, seed=i))
     (root / "report.pdf").write_bytes(make_pdf(["Invoice 2026-11", "Terms and conditions"]))
@@ -148,7 +166,7 @@ def export_digest(base: pathlib.Path) -> str:
 
 
 def plans_for(root: pathlib.Path, header: list[str], rows: int, digest: str,
-              export_sha: str = "pinned") -> dict[str, dict]:
+              export_sha: str = "pinned", passengers: dict | None = None) -> dict[str, dict]:
     rows_only = plan_body(root, "narrow: row count only", [
         {"id": "rows", "type": "csv_stats", "path": CSV_NAME,
          "expect": {"rows": rows}, "proves": "the export has the expected number of rows"},
@@ -188,8 +206,22 @@ def plans_for(root: pathlib.Path, header: list[str], rows: int, digest: str,
          "params": [143], "expect": {"equals": 1},
          "proves": "message 143 exists and is marked sent"},
     ])
-    return {"narrow": rows_only, "structural": structural, "strict": strict,
-            "documents": documents, "records": records}
+    # Second dataset: its own plan, because its null counts are real (177 / 687 / 2) and a
+    # zero-null assertion would be meaningless on it.
+    passengers_plan = None
+    if passengers:
+        passengers_plan = plan_body(
+            root, "passengers: a second public dataset's shape and real nulls", [
+                {"id": "rows-columns-nulls", "type": "csv_stats", "path": CSV2_NAME,
+                 "expect": {"rows": passengers["rows"], "columns": passengers["header"],
+                            "nulls": passengers["nulls"]},
+                 "proves": "row count, header and the real per-column null counts are unchanged"},
+            ])
+    out = {"narrow": rows_only, "structural": structural, "strict": strict,
+           "documents": documents, "records": records}
+    if passengers_plan:
+        out["passengers"] = passengers_plan
+    return out
 
 
 # ----------------------------------------------------------------- defects
@@ -311,7 +343,48 @@ def defects(csv_text: str, header: list[str]) -> dict[str, callable]:
     }
 
 
-def benign(csv_text: str) -> dict[str, callable]:
+def defects2(csv2_text: str) -> dict[str, callable]:
+    """Defects on the second public dataset. Its real nulls make these different in kind:
+    filling a blank changes a count that a zero-null assertion could never express."""
+    rows = list(csv.reader(io.StringIO(csv2_text)))
+
+    def _w(r: pathlib.Path, body: list[list[str]]) -> None:
+        (r / CSV2_NAME).write_text(_dump(body))
+
+    def drop_row(r: pathlib.Path) -> None:
+        _w(r, rows[:-1])
+
+    def duplicate_row(r: pathlib.Path) -> None:
+        _w(r, rows + [rows[-1]])
+
+    def fill_a_blank_age(r: pathlib.Path) -> None:
+        mutated = [list(x) for x in rows]
+        age = rows[0].index("Age")
+        for row in mutated[1:]:
+            if age < len(row) and row[age].strip() == "":
+                row[age] = "30"
+                break
+        _w(r, mutated)
+
+    def drop_cabin_column(r: pathlib.Path) -> None:
+        idx = rows[0].index("Cabin")
+        _w(r, [[c for i, c in enumerate(row) if i != idx] for row in rows])
+
+    return {
+        "csv2: drop a passenger row": drop_row,
+        "csv2: duplicate a passenger row": duplicate_row,
+        "csv2: fill a blank Age (null count drops)": fill_a_blank_age,
+        "csv2: drop the Cabin column": drop_cabin_column,
+    }
+
+
+def _dump(rows: list[list[str]]) -> str:
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="\n").writerows(rows)
+    return buf.getvalue()
+
+
+def benign(csv_text: str):
     lines = csv_text.rstrip("\n").split("\n")
     rows = _parse(csv_text)
 
@@ -340,6 +413,15 @@ def benign(csv_text: str) -> dict[str, callable]:
     }
 
 
+def benign2(csv2_text: str) -> dict[str, callable]:
+    rows = list(csv.reader(io.StringIO(csv2_text)))
+
+    def crlf(r: pathlib.Path) -> None:
+        (r / CSV2_NAME).write_text(_dump(rows).replace("\n", "\r\n"))
+
+    return {"csv2: CRLF line endings": crlf}
+
+
 # ----------------------------------------------------------------- runner
 def run_plan(body: dict, base: pathlib.Path, workdir: pathlib.Path) -> tuple[str, list[str]]:
     workdir.mkdir(parents=True, exist_ok=True)
@@ -359,24 +441,30 @@ def main() -> int:
     args = ap.parse_args()
 
     csv_path, source = fetch_csv(args.offline)
+    csv2_path, source2 = fetch_csv(args.offline, CSV2_URL, CSV2_NAME)
     csv_text = csv_path.read_text()
-    header = csv_text.splitlines()[0].split(",")
-    n_rows = len(csv_text.rstrip("\n").splitlines()) - 1
+    csv2_text = csv2_path.read_text()
+    header, n_rows, nulls = csv_shape(csv_text)
+    header2, n_rows2, nulls2 = csv_shape(csv2_text)
     digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
     print(f"corpus: {source}")
     print(f"        {CSV_NAME}: {n_rows} rows, {len(header)} columns "
           f"({', '.join(header)}), sha256 {digest[:16]}…")
+    print(f"corpus: {source2}")
+    print(f"        {CSV2_NAME}: {n_rows2} rows, {len(header2)} columns, real nulls "
+          + ", ".join(f"{k}={v}" for k, v in nulls2.items() if v))
     print("        export/: 6 generated PNGs (synthetic, deterministic)\n")
 
+    passengers = {"rows": n_rows2, "header": header2, "nulls": nulls2}
     work = pathlib.Path(tempfile.mkdtemp(prefix="proofops-bench-"))
     base = work / "pristine"
-    build_base(base, csv_path)
+    build_base(base, csv_path, csv2_path)
     export_sha = export_digest(base)
 
     results: dict[str, dict] = {}
     with tempfile.TemporaryDirectory() as scratch:
         scratch_p = pathlib.Path(scratch)
-        plans = plans_for(base, header, n_rows, digest, export_sha)
+        plans = plans_for(base, header, n_rows, digest, export_sha, passengers)
 
         # baseline: a clean corpus must not be flagged
         baseline = {}
@@ -391,11 +479,12 @@ def main() -> int:
         # defects
         catch = {k: 0 for k in plans}
         per_defect = []
-        for i, (label, apply) in enumerate(defects(csv_text, header).items()):
+        all_defects = {**defects(csv_text, header), **defects2(csv2_text)}
+        for i, (label, apply) in enumerate(all_defects.items()):
             variant = work / f"defect-{i}"
             shutil.copytree(base, variant)
             apply(variant)
-            body_for = plans_for(variant, header, n_rows, digest, export_sha)
+            body_for = plans_for(variant, header, n_rows, digest, export_sha, passengers)
             row = {"defect": label, "caught_by": {}}
             for key in plans:
                 verdict, failed = run_plan(body_for[key], variant, scratch_p / f"d-{i}-{key}")
@@ -408,11 +497,12 @@ def main() -> int:
         # benign changes
         false_alarm = {k: 0 for k in plans}
         benign_rows = []
-        for i, (label, apply) in enumerate(benign(csv_text).items()):
+        all_benign = {**benign(csv_text), **benign2(csv2_text)}
+        for i, (label, apply) in enumerate(all_benign.items()):
             variant = work / f"benign-{i}"
             shutil.copytree(base, variant)
             apply(variant)
-            body_for = plans_for(variant, header, n_rows, digest, export_sha)
+            body_for = plans_for(variant, header, n_rows, digest, export_sha, passengers)
             row = {"change": label, "flagged_by": {}}
             for key in plans:
                 verdict, failed = run_plan(body_for[key], variant, scratch_p / f"b-{i}-{key}")
@@ -463,12 +553,13 @@ def main() -> int:
         "strict": [r for r in per_defect if r["defect"].startswith(("csv:", "export:"))],
         "documents": [r for r in per_defect if r["defect"].startswith("pdf:")],
         "records": [r for r in per_defect if r["defect"].startswith("db:")],
+        "passengers": [r for r in per_defect if r["defect"].startswith("csv2:")],
     }
     ok = (all(v == "PASS" for v in baseline.values())
           and all(all(r["caught_by"][plan]["caught"] for r in rows)
                   for plan, rows in owners.items())
           and all(false_alarm[p] == 0
-                  for p in ("narrow", "structural", "documents", "records")))
+                  for p in ("narrow", "structural", "documents", "records", "passengers")))
     print("\nbench:", "PASS" if ok else "REVIEW")
     return 0 if ok else 1
 
