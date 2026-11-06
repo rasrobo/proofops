@@ -1,6 +1,7 @@
 # ProofOps
 
 [![verify](https://github.com/rasrobo/proofops/actions/workflows/verify.yml/badge.svg)](https://github.com/rasrobo/proofops/actions/workflows/verify.yml)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/robodigitalis)
 
 ### Your agent said "done". This is the receipt that proves it — or shows you the gap.
 
@@ -422,6 +423,16 @@ Python 3.10+. Nothing else — the standard library, no install step, no credent
 Open an issue. Every number in this README is reproducible with the command beside it, and a
 figure that has stopped being true is a bug — catching bugs of exactly that kind is the point of
 the project.
+
+## Support this
+
+ProofOps is MIT-licensed, has no company behind it, and takes no money from the thing it verifies —
+no hosted tier, no telemetry, no upsell, no "enterprise verification" edition later.
+
+If it caught something that would have cost you an afternoon, you can
+**[buy me a coffee](https://buymeacoffee.com/robodigitalis)**. That is genuinely it: nothing about
+the tool changes whether you do or not, there is no subscriber-only version, and a star or a bug
+report is worth just as much.
 
 ## Provenance
 
