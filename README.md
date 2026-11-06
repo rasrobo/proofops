@@ -1,13 +1,30 @@
 # ProofOps
 
-**Agents say "done". ProofOps checks whether that is true.**
+### Your agent said "done". This is the receipt that proves it — or shows you the gap.
 
-It runs a declared plan of read-only checks against a system or a deliverable and writes a
-**receipt**: every check's actual result, what that result proves, and — printed on every
-receipt — what passing does *not* prove.
+Every plugin makes an agent **do** more. ProofOps makes it **prove** it.
 
-It exists because "the command succeeded" and "the outcome is correct" are different claims,
-and only the second one is worth acting on.
+An agent, a script or a colleague reports success. ProofOps runs a declared plan of read-only
+checks against the real system or the deliverable, and writes a **receipt**: every check's actual
+result, what that result proves, and — printed on every receipt — what passing does *not* prove.
+
+[`docs/EXECUTIVE-SUMMARY.md`](docs/EXECUTIVE-SUMMARY.md) is the two-minute version for someone who
+will never read the code.
+
+---
+
+## The failure this exists for
+
+Last week an agent told me a database rebuild was identical. It was convincing: 181 of 181 tables
+matched, no errors, clean exit. Underneath, 39 structural drifts — columns, types and constraints
+that no longer matched production.
+
+The same week, three tool calls reported `sentMessageId 66` and `143`. No message existed in any
+account database. It had never left.
+
+Neither failure was a crash. Both were **well-formed claims that were completely wrong**, and both
+would have survived any check that asks "did the command succeed?" That question is not the one
+that matters. ProofOps asks the other one.
 
 ```
 ProofOps run PO-20261104T231903Z-ff6b fail:
@@ -17,28 +34,45 @@ ProofOps run PO-20261104T231903Z-ff6b fail:
          observed: {"expected": "ok", "observed": "degraded", "http_status": 200, ...}
 ```
 
-That failure is the product in one line: **HTTP 200 with `status=degraded`**. Every uptime
-monitor on earth calls that healthy. The deploy was not fine, and nothing said so.
+**HTTP 200 with `status=degraded`.** Every uptime monitor on earth calls that healthy.
 
----
+## What you get
 
-## What you actually get
+**A claim you can send.** Not "I checked" — a file with the values observed, the commands that
+produced them, the machine it ran on, and a hash over the whole thing. Attach it to a deploy, an
+invoice, a client email, a handover.
 
-Three things, each of which you can hand to somebody else:
-
-**A claim you can send.** Not "I checked" — a file with the values that were observed, the
-commands that produced them, the machine it ran on, and a hash over the whole thing. Attach it
-to a deploy, an invoice, a client email, a handover.
-
-**A gap you can see.** Checks that could not be performed are named at the top, not buried in a
-mostly-green list. The receipt then carries `claimable: false`, so an agent cannot quote the
-green part and skip the rest.
+**A gap you can see.** Checks that could not run are named at the top, not buried in a mostly-green
+list, and the receipt carries `claimable: false`. An agent cannot quote the green part and skip the
+rest.
 
 **Proof the goalposts did not move.** Every receipt records the plan revision — a sha256 of the
 checks themselves. Weakening an assertion to get a pass changes that revision, so a before/after
 comparison cannot be faked by editing the test.
 
-What it does not do is make your work correct. It makes your claim **auditable**.
+It does not make your work correct. It makes your claim **auditable**.
+
+## See it in 20 seconds
+
+No dependencies, nothing on your machine is touched:
+
+```bash
+python3 fixtures/readiness_server.py 8099 &          # disposable readiness endpoint
+
+python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
+#   -> PASS 4/4
+
+sed -i 's/"status": "ok"/"status": "degraded"/' fixtures/state.json
+python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
+#   -> FAIL 3/4   observed {"expected": "ok", "observed": "degraded", "http_status": 200}
+
+sed -i 's/"status": "degraded"/"status": "ok"/' fixtures/state.json
+python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
+#   -> PASS 4/4
+```
+
+All three receipts carry plan revision `sha256:eb01b6d884f0b144`. Identical revisions are what
+prove the plan was not loosened to get the green.
 
 ## When you would reach for it
 
@@ -72,29 +106,13 @@ not write for you.
 
 ## Install
 
-No dependencies beyond the Python standard library.
-
-```bash
-python3 -m proofops list --plans plans
-python3 -m proofops run plans/claw-way-deployment.json --target https://app.example.com
-python3 -m proofops verify receipts/PO-....json
-python3 -m proofops show receipts/PO-....json
-```
-
-Exit codes are a contract: `0` all checks passed · `1` a check failed · `2` the run could not be
-performed (bad plan, an origin the plan never declared, a command the operator never authorised).
-A caller that ignores every line of output can still trust the exit code.
-
-### As a Hermes plugin
-
-The repository root is a loadable plugin (`plugin.yaml` + `__init__.py`): four tools and one
-skill, still no dependencies.
-
 ```bash
 hermes plugins install https://github.com/rasrobo/proofops
 hermes plugins enable proofops
 # non-interactive (SSH, CI) needs --yes-deps, or the install is refused
 ```
+
+Four tools and one skill, no dependencies beyond the Python standard library.
 
 | tool | what it does |
 |---|---|
@@ -110,7 +128,21 @@ nothing — it only puts a receipt between the claim and the user.
 The plugin never reads a signing key. A signed receipt reports `needs-key` there by design;
 signing and keyed verification are CLI operations, where the operator holds the secret.
 
-## Plans are data
+Runs without Hermes too:
+
+```bash
+python3 -m proofops list --plans plans
+python3 -m proofops run plans/claw-way-deployment.json --target https://app.example.com
+python3 -m proofops show receipts/PO-....json
+```
+
+Exit codes are a contract: `0` all checks passed · `1` a check failed · `2` the run could not be
+performed (bad plan, an origin the plan never declared, a command the operator never authorised).
+A caller that ignores every line of output can still trust the exit code.
+
+## How it works
+
+### Plans are data
 
 ```json
 {
@@ -179,7 +211,7 @@ This used to be a `FAIL`, which was a lie of exactly the kind the tool exists to
 receipt read *"the deployed configuration failed validation"* for a command that never executed.
 A verifier that manufactures false negatives is worse than none, because somebody acts on it.
 
-## The receipt
+### The receipt
 
 Written to `receipts/<run-id>.json` (git-ignored: receipts describe a live environment).
 
@@ -207,20 +239,40 @@ is truthful. The command says so itself every time it runs.
 A receipt also names its inspector: `environment.commit` (the ProofOps build), host, Python and
 working directory. A certificate with no identity behind it is not evidence.
 
-## What it does not do
+## Risks, and what has been done about them
 
-- It does not repair anything, and does not claim to.
-- It does not prove a claim the plan never tests. The `does_not_prove` list exists so a receipt
-  can never be quoted as "everything works".
-- It does not cover authenticated flows, browser behaviour or state-changing operations. Those
-  need the project's own tests; ProofOps can record that gap, not close it.
-- It cannot read scanned PDFs or CID fonts without ToUnicode, and says so instead of guessing.
+A verification tool fails quietly, which is why this section is here rather than in a footnote.
+Each risk is real, each mitigation is in the code, and what remains is stated as remaining.
+
+**A plan can be too narrow and still pass.** A row count calls a short file healthy.
+*Done:* the benchmark publishes the miss rate per plan strength — narrow catches 3 of 22 defects —
+so nobody can read "PASS" as "correct". Every receipt names what it did not test.
+
+**A verifier can cry wolf.** Exact checks flag files that were merely re-saved.
+*Done:* false alarms are measured, not assumed: 3 of 5 benign changes flagged by byte-exact plans,
+0 by structural, document and record plans. The numbers are in this README, not in a pitch.
+
+**A verdict can depend on the machine.** CI caught `select 1` against a non-database file passing
+on one SQLite build and failing on another.
+*Done:* fixed at the source (`PRAGMA schema_version` forces the header check) and pinned by a test.
+Fourteen limits tests now assert that unreadable inputs fail **loudly**, never cleanly.
+
+**A receipt can be edited after the fact.**
+*Done:* sha256 seal, optional HMAC, and a `verify` command whose own output states what sealing
+does *not* prove — that the checks were honest, or that the plan was adequate.
+
+**An agent can quote the green part of a mostly-green run.**
+*Done:* `claimable: false`, the `not_verified` list, and exit code `2` for a run that could not be
+performed. A refusal is a third outcome, never a pass and never a failure.
+
+**What remains:** ProofOps cannot prove the checks were run honestly, cannot cover authenticated
+flows or browser journeys, and cannot read scanned PDFs or CID fonts without ToUnicode. Those are
+named in every receipt rather than left to be discovered.
 
 ## How good is it? Measured, including where it fails
 
-A verifier's honest question about itself is not "do my checks pass" but "what is my detection
-rate, and what do I flag when nothing is wrong". `bench/run_bench.py` answers both against a
-corpus whose ground truth is known by construction: **two independently published CSVs** (194
+`bench/run_bench.py` answers the only honest question a verifier can be asked: what is my detection
+rate, and what do I flag when nothing is wrong. The corpus is two independently published CSVs (194
 countries; 891 passengers with 177/687/2 real nulls), a deterministic image export, a two-page PDF
 and a seeded SQLite system of record — **22 defects injected one at a time**, **5 benign changes**
 applied to a clean copy.
@@ -254,39 +306,26 @@ clean corpus is flagged.
 
 The benchmark has already caught three defects in this tool: `csv_stats` counted a trailing blank
 line as a data row; the first benchmark split CSV rows on commas, mangling quoted fields and
-letting a row-count plan claim a catch it had not made; and CI found a verdict that depended on
-the SQLite library version, where `select 1` against a non-database file passed on one build and
-failed on another. Each is fixed and pinned by a test.
+letting a row-count plan claim a catch it had not made; and CI found the SQLite cross-version
+verdict above. Each is fixed and pinned by a test.
 
-## Reproduce the whole demonstration
+## Where it stands, and what is next
 
-Copy-paste, about 20 seconds, no dependencies. The defect is a one-line change to a throwaway
-fixture — no service is touched.
+**Shipped:** 0.3.3 — a loadable Hermes plugin (4 tools + 1 skill, `hermes plugins validate` clean)
+over a stdlib-only engine: 5 plans, 14 check types, command checks fenced twice, path-fenced
+deliverable/document/record checks, sealed and optionally signed receipts, origin allowlists, a
+CLI, and an injected-defect benchmark. **116 tests**, CI green on every push (tests, benchmark,
+end-to-end demonstration, seal check).
 
-```bash
-python3 fixtures/readiness_server.py 8099 &          # disposable readiness endpoint
+**Next, in order:** a plan linter that warns when a plan asserts less than its `proves` line
+implies; a `diff` command comparing two receipts of the same revision; and Postgres read-back as a
+first-class check rather than through `psql`.
 
-python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
-#   -> PASS 4/4
+**Deliberately not built:** authenticated HTTP, browser journeys, plan composition, and any UI.
+ProofOps does not repair anything, and does not claim to.
 
-sed -i 's/"status": "ok"/"status": "degraded"/' fixtures/state.json
-python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
-#   -> FAIL 3/4, observed {"expected": "ok", "observed": "degraded", "http_status": 200}
+## Provenance
 
-sed -i 's/"status": "degraded"/"status": "ok"/' fixtures/state.json
-python3 -m proofops run plans/claw-way-deployment.local.json --target http://127.0.0.1:8099
-#   -> PASS 4/4
-```
-
-All three receipts carry plan revision `sha256:eb01b6d884f0b144`. Identical revisions are what
-prove the plan was not loosened to get the green.
-
-## Status
-
-Version 0.3.3. Loadable Hermes plugin (4 tools + 1 bundled skill, `hermes plugins validate`
-clean) over a stdlib-only engine: 5 shipped plans, plan loading, fourteen check types, command
-checks fenced twice, path-fenced deliverable/document/process checks, sealed and optionally
-signed receipts, origin allowlists, a CLI, and an injected-defect benchmark. **116 tests**, CI
-green on every push (tests, benchmark, end-to-end demonstration, seal check).
-
-Deliberately not built: authenticated HTTP, browser journeys, plan composition, and any UI.
+Built for the Hermes Agent plugin hackathon. Every number in this README comes from the repository
+and is reproducible with the commands shown beside it. If one stops being true, that is a bug —
+and catching bugs of exactly that kind is what the project is for.
