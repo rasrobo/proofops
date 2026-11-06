@@ -4,11 +4,13 @@
 
 ### Your agent said "done". This is the receipt that proves it — or shows you the gap.
 
-Every plugin makes an agent **do** more. ProofOps makes it **prove** it.
+ProofOps is a **Hermes Agent plugin** — and a standalone Python CLI — for verifying what an AI agent
+actually did. Every plugin makes an agent **do** more; this one makes it **prove** it.
 
 An agent, a script or a colleague reports success. ProofOps runs a declared plan of read-only
 checks against the real system or the deliverable, and writes a **receipt**: every check's actual
 result, what that result proves, and — printed on every receipt — what passing does *not* prove.
+It is the missing verification step between an agent saying "done" and anyone relying on it.
 
 [`docs/EXECUTIVE-SUMMARY.md`](docs/EXECUTIVE-SUMMARY.md) is the two-minute version for someone who
 will never read the code.
@@ -375,6 +377,45 @@ first-class check rather than through `psql`.
 
 **Deliberately not built:** authenticated HTTP, browser journeys, plan composition, and any UI.
 ProofOps does not repair anything, and does not claim to.
+
+## FAQ
+
+**Is this a Hermes Agent plugin?**
+Yes. `hermes plugins install https://github.com/rasrobo/proofops` adds four tools — `proofops_plans`,
+`proofops_run`, `proofops_receipt`, `proofops_verify` — and one skill that tells the agent to verify
+before it writes "done". It also runs standalone, with no Hermes installed.
+
+**How do I check whether my AI agent actually finished the task?**
+Turn the claim into observable checks (`proofops new --dir …` does this automatically for files),
+run them, and read the receipt. A PASS means the checks you declared were observed to hold — and the
+same receipt prints what they do not cover, so a pass can never be quoted as "everything works".
+
+**Why does my agent say "done" when it isn't?**
+Because "the command succeeded" and "the outcome is correct" are different claims, and most tooling
+only reports the first. An HTTP 200, a zero exit code and an existing file are all compatible with
+the job not being done — that gap is what this checks.
+
+**Does it use an LLM?**
+No model, no API key, no telemetry. The only network traffic is the HTTP GETs a plan explicitly
+declares. Same plan against the same state gives the same verdict, which is what makes a receipt
+worth quoting.
+
+**Is it a test runner or a CI pipeline?**
+No — it verifies claims about *state* (a deployment, an export, a database row, a document), which
+test suites rarely see. It runs happily inside CI; this repository has a workflow that tests it,
+benchmarks it and verifies its own receipts on every push.
+
+**Can it verify that an email or message was really sent?**
+It verifies the row a send is supposed to leave behind — `sqlite_query` for SQLite, `psql` through
+`command_exit` for Postgres. It cannot see the recipient's inbox, and says so rather than implying
+otherwise.
+
+**What is a receipt, exactly?**
+A JSON file holding each check's result and observed values, the plan revision, the inspector's
+identity, and a sha256 seal. `proofops verify` returns valid / tampered / unsealed / needs-key.
+
+**What do I need to run it?**
+Python 3.10+. Nothing else — the standard library, no install step, no credentials.
 
 ## If something here is wrong
 
