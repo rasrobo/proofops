@@ -1,12 +1,18 @@
 # Submission — what the organisers ask for
 
+**The form itself:** http://form.typeform.com/to/FwJLvOln (🐴 Hermes Agent Plugin Hackathon, ~5 min).
+Its six questions, in order: Plugin Title · Plugin Description · Email Address · Discord Username ·
+X Demo Post Link · one more (repo/PR) — so the X post must exist before the form can be completed.
+
+Answers for the first three are below; the X link comes from the posted thread.
+
 **Deadline: 11 November 2026, 17:00 EST.** Three things, in this order. Only two of them need you.
 
 | # | the ask | status |
 |---|---|---|
 | 1 | Open a pull request adding the plugin to the Hermes catalogue | **done** — [PR #149625](https://github.com/NousResearch/hermes-agent/pull/149625), open and mergeable |
 | 2 | Post a demo **on X, under 90 seconds, tagging @NousResearch** | **yours** — copy below, video is 74 s |
-| 3 | Submit both links through the organiser's form | **yours** — paste the form link here and the answers below drop straight in |
+| 3 | Submit both links through the organiser's form ([typeform](http://form.typeform.com/to/FwJLvOln)) | **yours** — answers below |
 
 The X post is not optional and a YouTube link alone does not satisfy it: the rules ask for the
 demo posted on X. It has to come from your account, because it is judged as your entry.
