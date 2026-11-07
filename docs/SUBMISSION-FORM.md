@@ -32,10 +32,12 @@ Reply to your own post with:
 ```
 The numbers ship with the tool: a row-count plan catches 3 of 22 injected defects. Checksums catch 13 of 22 — and raise 3 false alarms on files that were only reformatted.
 
-116 tests, CI green. @NousResearch catalogue PR: github.com/NousResearch/hermes-agent/pull/149625
+139 tests, CI green. Public usage dashboard, failures included: rasrobo.github.io/proofops/metrics
+@NousResearch catalogue PR: github.com/NousResearch/hermes-agent/pull/149625
 ```
 
-Before posting, make the video public: YouTube Studio → the video → Details → Visibility → Public.
+The video is already public (verified 2026-11-07): https://youtu.be/3ee1VbHZpXo — attach it to post 1
+so the link plays inline, and put the alt text on the attachment, not in the text.
 
 ---
 
@@ -49,8 +51,8 @@ are the ones in the catalogue entry.
 | Project name | ProofOps |
 | Repository | https://github.com/rasrobo/proofops |
 | Catalogue PR | https://github.com/NousResearch/hermes-agent/pull/149625 |
-| Pinned commit | `b987b51e4f318b5aa486501010a4cfc47152bc6c` (version 0.3.3) |
-| Demo video | https://youtu.be/3ee1VbHZpXo (74 s, limit is 90 s) |
+| Pinned commit | `8c7744f32195cca86861bd0d930b05a18a865865` (version 0.3.9) |
+| Demo video | https://youtu.be/3ee1VbHZpXo (74 s, public, limit is 90 s) |
 | X post | the thread tagging @NousResearch, `#HermesAgent` |
 
 ## One line
@@ -113,7 +115,7 @@ writes a plan asserting the shape it has now.
 
 - **Usefulness** — it targets the failure that costs days: work that reports success and isn't.
   Receipts are quotable evidence for a customer or an auditor.
-- **Reliability** — 116 tests and a public benchmark with its own false-alarm rate; a refusal is a
+- **Reliability** — 139 tests and a public benchmark with its own false-alarm rate; a refusal is a
   third outcome, not a green tick; weakening a plan changes its revision, so a loosened check
   cannot masquerade as the original; receipts cannot be edited after the run without detection.
   CI caught the tool's own verdict changing with the SQLite library version — a `select 1` against

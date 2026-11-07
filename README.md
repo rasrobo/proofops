@@ -225,7 +225,7 @@ platform, pass/fail/not-run totals, and the same totals **per check type** so th
 what kind of thing is being verified (a web service, a file, a PDF, a database) without saying whose:
 
 ```json
-{"schema":2,"install_id":"<uuid4>","version":"0.3.5","runs":41,"plans":3,"platform":"linux",
+{"schema":2,"install_id":"<uuid4>","version":"0.3.9","runs":41,"plans":3,"platform":"linux",
  "checks":{"pass":128,"fail":9,"not_run":2},
  "by_type":{"http_status":{"pass":40,"fail":2,"not_run":0},
             "pdf_pages":{"pass":6,"fail":1,"not_run":0}}}
@@ -420,11 +420,11 @@ verdict above. Each is fixed and pinned by a test.
 
 ## Where it stands, and what is next
 
-**Shipped:** 0.3.3 — a loadable Hermes plugin (4 tools + 1 skill, `hermes plugins validate` clean)
+**Shipped:** 0.3.9 — a loadable Hermes plugin (4 tools + 1 skill, `hermes plugins validate` clean)
 over a stdlib-only engine: 5 plans, 14 check types, command checks fenced twice, path-fenced
 deliverable/document/record checks, sealed and optionally signed receipts, origin allowlists, a
-CLI, and an injected-defect benchmark. **116 tests**, CI green on every push (tests, benchmark,
-end-to-end demonstration, seal check).
+CLI, an injected-defect benchmark, and opt-in anonymous diagnostics whose payload is published.
+**139 tests**, CI green on every push (tests, benchmark, end-to-end demonstration, seal check).
 
 **Next, in order:** a plan linter that warns when a plan asserts less than its `proves` line
 implies; a `diff` command comparing two receipts of the same revision; and Postgres read-back as a
