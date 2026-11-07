@@ -68,10 +68,20 @@ def set_consent(share: bool, endpoint: str | None = None) -> dict:
     return c
 
 
+# Mirrors proofops/checks.py:REGISTRY. Kept as a literal so the client does not import the check
+# implementations just to report a name; a test asserts the two never drift.
+CHECK_TYPES = frozenset({
+    "command_exit", "file_sha256", "file_exists", "dir_manifest", "csv_stats", "image_size",
+    "pdf_pages", "pdf_page_size", "pdf_text_contains", "sqlite_query",
+    "http_status", "http_json_field", "http_body_contains", "http_header",
+})
+
+
 def collect_stats(receipts_dir: Path) -> dict:
     """Aggregate the operator's own receipts. Pure local file reads."""
     runs = 0
     checks = {"pass": 0, "fail": 0, "not_run": 0}
+    by_type: dict[str, dict[str, int]] = {}
     verdicts: dict[str, int] = {}
     plans: set[str] = set()
     for f in sorted(Path(receipts_dir).glob("*.json")):
@@ -89,12 +99,25 @@ def collect_stats(receipts_dir: Path) -> dict:
         for c in d.get("checks") or []:
             status = c.get("status")
             if status == "not_run" or c.get("not_run"):
-                checks["not_run"] += 1
+                outcome = "not_run"
             elif c.get("passed") is True:
-                checks["pass"] += 1
+                outcome = "pass"
             elif c.get("passed") is False:
-                checks["fail"] += 1
-    return {"runs": runs, "checks": checks, "verdicts": verdicts, "plans": len(plans)}
+                outcome = "fail"
+            elif c.get("passed") is None and "passed" in c:
+                # receipts mark a check that could not run as passed=None (see receipt.py)
+                outcome = "not_run"
+            else:
+                continue
+            checks[outcome] += 1
+            # The check TYPE is a category (http_status, pdf_pages...). The check ID, path and
+            # command are not collected at all - they describe the customer.
+            t = str(c.get("type") or "")
+            if t in CHECK_TYPES:
+                bucket = by_type.setdefault(t, {"pass": 0, "fail": 0, "not_run": 0})
+                bucket[outcome] += 1
+    return {"runs": runs, "checks": checks, "by_type": by_type,
+            "verdicts": verdicts, "plans": len(plans)}
 
 
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+[0-9a-z.+-]{0,8}$")
@@ -123,14 +146,24 @@ def sanitise(payload: dict) -> dict:
         except (TypeError, ValueError):
             return 0
 
+    def by_type(value) -> dict:
+        out = {}
+        for t, counts in (value or {}).items():
+            if t not in CHECK_TYPES or not isinstance(counts, dict):
+                continue
+            out[t] = {k: count(counts.get(k, 0)) for k in ("pass", "fail", "not_run")}
+        return dict(sorted(out.items()))
+
     checks = payload.get("checks") or {}
     return {
+        "schema": 2,
         "install_id": str(uuid.UUID(str(payload.get("install_id", "")))),
         "version": version(payload.get("version")),
         "platform": plat(payload.get("platform")),
         "runs": count(payload.get("runs")),
         "plans": count(payload.get("plans")),
         "checks": {k: count(checks.get(k, 0)) for k in ("pass", "fail", "not_run")},
+        "by_type": by_type(payload.get("by_type")),
     }
 
 
@@ -142,6 +175,7 @@ def build_payload(receipts_dir: Path) -> dict:
         "version": __version__,
         "runs": stats["runs"],
         "checks": stats["checks"],
+        "by_type": stats["by_type"],
         "plans": stats["plans"],
         "platform": platform.system().lower(),
     }

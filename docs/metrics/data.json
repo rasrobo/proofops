@@ -1,16 +1,65 @@
 {
-  "generated_at": "2026-11-07T00:00:44+00:00",
+  "generated_at": "2026-11-07T00:28:16+00:00",
   "installs": 1,
   "runs": 39,
   "checks": {
     "pass": 120,
     "fail": 12,
-    "not_run": 0
+    "not_run": 4
   },
-  "total_checks": 132,
-  "pass_rate": 90.9,
+  "total_checks": 136,
+  "pass_rate": 88.2,
+  "by_type": {
+    "http_json_field": {
+      "pass": 81,
+      "fail": 9,
+      "not_run": 0
+    },
+    "http_status": {
+      "pass": 30,
+      "fail": 0,
+      "not_run": 0
+    },
+    "command_exit": {
+      "pass": 6,
+      "fail": 2,
+      "not_run": 4
+    },
+    "csv_stats": {
+      "pass": 1,
+      "fail": 1,
+      "not_run": 0
+    },
+    "dir_manifest": {
+      "pass": 2,
+      "fail": 0,
+      "not_run": 0
+    }
+  },
+  "by_family": {
+    "web & apis": {
+      "pass": 111,
+      "fail": 9,
+      "not_run": 0
+    },
+    "builds & commands": {
+      "pass": 6,
+      "fail": 2,
+      "not_run": 4
+    },
+    "files & artifacts": {
+      "pass": 2,
+      "fail": 0,
+      "not_run": 0
+    },
+    "data": {
+      "pass": 1,
+      "fail": 1,
+      "not_run": 0
+    }
+  },
   "versions": {
-    "0.3.4": 1
+    "0.3.5": 1
   },
   "platforms": {
     "linux": 1

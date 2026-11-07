@@ -200,12 +200,18 @@ python3 -m proofops share --enable   # opt in, then send
 ```
 
 The payload is exactly this and nothing else — a random install id, version, run count, plan count,
-platform, and pass/fail/not-run totals:
+platform, pass/fail/not-run totals, and the same totals **per check type** so the report can say
+what kind of thing is being verified (a web service, a file, a PDF, a database) without saying whose:
 
 ```json
-{"install_id":"<uuid4>","version":"0.3.4","runs":41,
- "checks":{"pass":128,"fail":9,"not_run":2},"plans":3,"platform":"linux"}
+{"schema":2,"install_id":"<uuid4>","version":"0.3.5","runs":41,"plans":3,"platform":"linux",
+ "checks":{"pass":128,"fail":9,"not_run":2},
+ "by_type":{"http_status":{"pass":40,"fail":2,"not_run":0},
+            "pdf_pages":{"pass":6,"fail":1,"not_run":0}}}
 ```
+
+The type names are a closed set of fourteen, and the server rejects anything outside it — so a plan
+named after a customer cannot become a type name.
 
 No paths, hostnames, plan names, receipt contents or command output — a test asserts the payload
 contains none of those, and another asserts `urlopen` is never reached without recorded consent.

@@ -69,7 +69,8 @@ class TestNothingLeavesWithoutConsent(unittest.TestCase):
             self.assertEqual(metrics.payload_bytes(c.receipts), metrics.payload_bytes(c.receipts))
             parsed = json.loads(metrics.payload_bytes(c.receipts))
             self.assertEqual(sorted(parsed),
-                             ["checks", "install_id", "plans", "platform", "runs", "version"])
+                             ["by_type", "checks", "install_id", "plans", "platform", "runs",
+                              "schema", "version"])
 
 
 class TestPayloadHasNoFingerprint(unittest.TestCase):
@@ -87,6 +88,52 @@ class TestPayloadHasNoFingerprint(unittest.TestCase):
             self.assertEqual(first, second, "install id must be stable across runs")
             self.assertEqual(str(uuid.UUID(first)), first, "must parse as a uuid4")
             self.assertEqual(uuid.UUID(first).version, 4)
+
+
+class TestCheckTypes(unittest.TestCase):
+    def test_the_client_type_list_matches_the_registry(self):
+        """If a check type is added to REGISTRY and not here, its counts silently vanish from the
+        public report. Fail loudly instead."""
+        from proofops.checks import REGISTRY
+        self.assertEqual(set(metrics.CHECK_TYPES), set(REGISTRY), "CHECK_TYPES drifted from REGISTRY")
+
+    def test_by_type_counts_each_type_separately(self):
+        with tempfile.TemporaryDirectory() as td:
+            Path(td, "r1.json").write_text(json.dumps({"plan_revision": "sha256:aa", "checks": [
+                {"id": "a", "type": "http_status", "passed": True},
+                {"id": "b", "type": "http_status", "passed": False},
+                {"id": "c", "type": "pdf_pages", "passed": None},
+                {"id": "d", "type": "sqlite_query", "passed": True},
+            ]}))
+            s = metrics.collect_stats(Path(td))
+        self.assertEqual(s["by_type"]["http_status"], {"pass": 1, "fail": 1, "not_run": 0})
+        self.assertEqual(s["by_type"]["pdf_pages"], {"pass": 0, "fail": 0, "not_run": 1})
+        self.assertEqual(s["checks"], {"pass": 2, "fail": 1, "not_run": 1})
+
+    def test_the_payload_carries_by_type_not_just_the_totals(self):
+        """Regression: collect_stats counted types but build_payload dropped them, so the field
+        could have shipped empty forever while every test passed."""
+        with tempfile.TemporaryDirectory() as td:
+            Path(td, "r1.json").write_text(json.dumps({"plan_revision": "sha256:aa", "checks": [
+                {"id": "a", "type": "http_status", "passed": True},
+                {"id": "b", "type": "pdf_pages", "passed": False},
+            ]}))
+            payload = json.loads(metrics.payload_bytes(Path(td)))
+        self.assertTrue(payload["by_type"], "by_type must reach the wire, not just collect_stats")
+        self.assertEqual(payload["by_type"]["http_status"]["pass"], 1)
+        self.assertEqual(payload["by_type"]["pdf_pages"]["fail"], 1)
+
+    def test_an_unknown_or_customer_named_type_is_dropped(self):
+        out = metrics.sanitise({
+            "install_id": "2b1f3f16-1f6f-4b0e-9d3f-5a1c7e2d4b11",
+            "version": "0.3.5", "platform": "linux", "runs": 1, "plans": 1,
+            "checks": {"pass": 2, "fail": 0, "not_run": 0},
+            "by_type": {"http_status": {"pass": 2},
+                        "acme_customer_portal": {"pass": 99},
+                        "jane.doe@example.com": {"pass": 1}},
+        })
+        self.assertEqual(list(out["by_type"]), ["http_status"])
+        self.assertNotIn("acme", json.dumps(out).lower())
 
 
 class TestEndpointShape(unittest.TestCase):
@@ -125,7 +172,8 @@ class TestSanitise(unittest.TestCase):
         blob = json.dumps(out).lower()
         for leak in ("jane", "@", "acme", "customer", "internal"):
             self.assertNotIn(leak, blob, f"sanitise leaked {leak!r}")
-        self.assertEqual(sorted(out), ["checks", "install_id", "plans", "platform", "runs", "version"])
+        self.assertEqual(sorted(out), ["by_type", "checks", "install_id", "plans", "platform",
+                                       "runs", "schema", "version"])
         self.assertEqual(out["version"], "unknown", "a version string with junk in it is refused whole")
         self.assertEqual(out["platform"], "other", "an unrecognised platform is 'other', never echoed")
 

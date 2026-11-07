@@ -40,9 +40,33 @@ def latest_per_install(lines: list[str]) -> dict[str, dict]:
     return seen
 
 
+# Grouped for humans: what KIND of software the checks were run against. Derived at publish time,
+# never sent by the client — the payload carries only the raw type names.
+FAMILIES = {
+    "web & apis": ["http_status", "http_json_field", "http_body_contains", "http_header"],
+    "files & artifacts": ["file_exists", "file_sha256", "dir_manifest", "image_size"],
+    "data": ["csv_stats", "sqlite_query"],
+    "documents": ["pdf_pages", "pdf_page_size", "pdf_text_contains"],
+    "builds & commands": ["command_exit"],
+}
+
+
+def families(by_type: dict) -> dict:
+    out = {}
+    for name, types in FAMILIES.items():
+        counts = {"pass": 0, "fail": 0, "not_run": 0}
+        for t in types:
+            for k in counts:
+                counts[k] += int((by_type.get(t) or {}).get(k, 0) or 0)
+        if sum(counts.values()):
+            out[name] = counts
+    return dict(sorted(out.items(), key=lambda kv: -sum(kv[1].values())))
+
+
 def aggregate(records: dict[str, dict]) -> dict:
     runs = 0
     checks = {"pass": 0, "fail": 0, "not_run": 0}
+    by_type: dict[str, dict[str, int]] = {}
     versions: Counter = Counter()
     platforms: Counter = Counter()
     for rec in records.values():
@@ -50,6 +74,10 @@ def aggregate(records: dict[str, dict]) -> dict:
         c = rec.get("checks") or {}
         for k in checks:
             checks[k] += int(c.get(k, 0) or 0)
+        for t, c2 in (rec.get("by_type") or {}).items():
+            bucket = by_type.setdefault(t, {"pass": 0, "fail": 0, "not_run": 0})
+            for k in bucket:
+                bucket[k] += int((c2 or {}).get(k, 0) or 0)
         versions[str(rec.get("version", "unknown"))[:20]] += 1
         platforms[str(rec.get("platform", "unknown"))[:20]] += 1
     total_checks = sum(checks.values())
@@ -60,6 +88,8 @@ def aggregate(records: dict[str, dict]) -> dict:
         "checks": checks,
         "total_checks": total_checks,
         "pass_rate": round(100 * checks["pass"] / total_checks, 1) if total_checks else None,
+        "by_type": dict(sorted(by_type.items(), key=lambda kv: -sum(kv[1].values()))),
+        "by_family": families(by_type),
         "versions": dict(versions.most_common()),
         "platforms": dict(platforms.most_common()),
         "source": "self-reported by operators who ran `proofops share --enable`",
