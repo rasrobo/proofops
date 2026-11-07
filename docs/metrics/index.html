@@ -160,9 +160,14 @@ async function main(){
   rows(d.versions, 'versions');
   rows(d.platforms, 'platforms');
 
-  document.getElementById('meta').textContent =
+  // The footer describes the CURRENT payload and links to the authoritative spec, rather than
+  // restating a schema in prose that silently goes stale when a field is added.
+  const spec = 'https://github.com/rasrobo/proofops/blob/main/docs/METRICS.md';
+  document.getElementById('meta').innerHTML =
     `Generated ${d.generated_at || 'unknown'} · source: ${d.source || 'opt-in aggregate'} · ` +
-    `payload schema: install_id, version, platform, runs, plans, checks{pass,fail,not_run}.` +
+    `payload: schema, install_id, version, platform, runs, plans, ` +
+    `checks{pass,fail,not_run}, by_type{14 check types} — ` +
+    `<a href="${spec}" rel="noopener">full spec and exact bytes</a>.` +
     (d.note ? ` ${d.note}` : "");
 }
 main();

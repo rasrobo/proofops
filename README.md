@@ -191,13 +191,30 @@ A caller that ignores every line of output can still trust the exit code.
 
 ## Metrics — off by default
 
-Two commands, and neither touches the network unless you say so:
+It asks **once**, at the only moment you have a receipt worth counting — after your first run. One
+screen, Enter means no, and it never asks again:
+
+```
+  [y] count my runs anonymously      [d] show me the exact bytes first
+  [Enter] no - and do not ask again
+```
+
+No default-yes, no countdown, no pre-ticked box: a prompt that could be defaulted into consent
+would make every number on the public page a lie. Answering `y` sends the first one immediately, so
+the decision shows up on the dashboard rather than waiting for you to remember a second command.
+
+Everything is still available explicitly:
 
 ```bash
-python3 -m proofops stats            # your own receipts, local only
+python3 -m proofops stats            # your own receipts, local only, no socket
 python3 -m proofops share --dry-run  # print the exact payload — sends nothing
-python3 -m proofops share --enable   # opt in, then send
+python3 -m proofops share --enable   # opt in and send
+python3 -m proofops share --send     # send again later, using recorded consent
+python3 -m proofops setup            # ask the question again, if you changed your mind
 ```
+
+`CI=1` or `PROOPS_NO_PROMPT=1` suppresses the prompt entirely for unattended runs — nothing is
+enabled in that case. The full field-by-field spec is in [docs/METRICS.md](docs/METRICS.md).
 
 The payload is exactly this and nothing else — a random install id, version, run count, plan count,
 platform, pass/fail/not-run totals, and the same totals **per check type** so the report can say

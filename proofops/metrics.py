@@ -18,6 +18,7 @@ import json
 import os
 import platform
 import re
+import sys
 import urllib.request
 import uuid
 from datetime import datetime, timezone
@@ -66,6 +67,88 @@ def set_consent(share: bool, endpoint: str | None = None) -> dict:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(c, indent=2))
     return c
+
+
+def consent_status() -> str:
+    """`enabled`, `declined` or `undecided`.
+
+    `undecided` is the only state that may ever trigger a prompt. A refusal is recorded so the
+    operator is asked exactly once and never nagged - the difference between an invitation and a
+    dark pattern.
+    """
+    c = consent()
+    if c.get("share"):
+        return "enabled"
+    if c.get("decided_at"):
+        return "declined"
+    return "undecided"
+
+
+def interactive() -> bool:
+    """A human is at a terminal, and nobody has said this is an unattended run."""
+    if os.environ.get("PROOPS_NO_PROMPT") or os.environ.get("CI"):
+        return False
+    try:
+        return sys.stdin.isatty() and sys.stderr.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+PITCH = """
+  --------------------------------------------------------------
+  One question, once - then I never ask again.
+
+  ProofOps can only prove it is useful if someone can see it being used. If you
+  say yes, after each run you choose, it sends nine fields and nothing else:
+
+    a random install id   version   platform   runs   plans
+    pass / fail / not-run totals   ...and the same totals per check type
+
+  NEVER: paths, hostnames, plan names, receipt contents, or command output.
+
+  It is the difference between "a tool exists" and "this tool checked 136 things
+  on real systems, and 12 of them failed". The dashboard is public, failures
+  included: rasrobo.github.io/proofops/metrics
+
+    [y] count my runs anonymously      [d] show me the exact bytes first
+    [Enter] no - and do not ask again
+  --------------------------------------------------------------
+"""
+
+
+def ask(receipts_dir: Path, stream=None) -> str:
+    """Ask once, in the plainest terms available. Enter means no.
+
+    Returns the resulting status. Never writes a `yes` the operator did not type: a prompt that
+    could be defaulted into consent would make every number on the dashboard a lie.
+    """
+    stream = stream or sys.stderr
+    while True:
+        print(PITCH, file=stream, end="")
+        try:
+            print("  > ", file=stream, end="", flush=True)
+            answer = (sys.stdin.readline() or "").strip().lower()
+        except (OSError, ValueError):
+            answer = ""
+        if answer in ("d", "dry", "dry-run"):
+            print(payload_bytes(receipts_dir).decode(), file=stream)
+            print("  (that is the whole payload - nothing else leaves this machine)", file=stream)
+            continue
+        if answer in ("y", "yes", "1"):
+            set_consent(True)
+            print("  counting this install anonymously. `proofops share --disable` undoes it.",
+                  file=stream)
+            return "enabled"
+        set_consent(False)
+        print("  no problem - nothing will be sent, and I will not ask again.", file=stream)
+        return "declined"
+
+
+def maybe_ask(receipts_dir: Path) -> str:
+    """Ask only if it is the right moment: undecided, interactive, and not already answered."""
+    if consent_status() != "undecided" or not interactive():
+        return consent_status()
+    return ask(receipts_dir)
 
 
 # Mirrors proofops/checks.py:REGISTRY. Kept as a literal so the client does not import the check

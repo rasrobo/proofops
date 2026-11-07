@@ -5,7 +5,9 @@ impossible to send something the operator did not see and agree to. So these tes
 no socket opened without consent, no field that could identify a machine or a plan — rather than
 asserting that a happy path posts JSON.
 """
+import io
 import json
+import os
 import pathlib
 import sys
 import tempfile
@@ -88,6 +90,70 @@ class TestPayloadHasNoFingerprint(unittest.TestCase):
             self.assertEqual(first, second, "install id must be stable across runs")
             self.assertEqual(str(uuid.UUID(first)), first, "must parse as a uuid4")
             self.assertEqual(uuid.UUID(first).version, 4)
+
+
+class FakeStdin:
+    def __init__(self, lines):
+        self.lines = list(lines)
+    def isatty(self):
+        return True
+    def readline(self):
+        return self.lines.pop(0) if self.lines else ""
+
+
+class TestConsentPrompt(unittest.TestCase):
+    """The install moment: it must convert without ever manufacturing consent."""
+
+    def setUp(self):
+        self.td = tempfile.TemporaryDirectory()
+        self.env = mock.patch.dict(os.environ, {"PROOPS_HOME": self.td.name})
+        self.env.start()
+        self.receipts = Path(self.td.name, "receipts")
+        self.receipts.mkdir()
+
+    def tearDown(self):
+        self.env.stop()
+        self.td.cleanup()
+
+    def test_nothing_is_asked_without_a_human_at_a_terminal(self):
+        with mock.patch.object(metrics.sys.stdin, "isatty", return_value=False):
+            self.assertEqual(metrics.maybe_ask(self.receipts), "undecided")
+        self.assertEqual(metrics.consent_status(), "undecided", "must not write a decision")
+
+    def test_enter_means_no_and_it_is_remembered(self):
+        with mock.patch.object(metrics, "interactive", return_value=True), \
+             mock.patch.object(metrics.sys, "stdin", FakeStdin(["\n"])):
+            self.assertEqual(metrics.maybe_ask(self.receipts), "declined")
+        self.assertEqual(metrics.consent_status(), "declined")
+
+    def test_a_declined_install_is_never_asked_again(self):
+        with mock.patch.object(metrics, "interactive", return_value=True), \
+             mock.patch.object(metrics.sys, "stdin", FakeStdin([""])):
+            metrics.maybe_ask(self.receipts)
+        out = io.StringIO()
+        with mock.patch.object(metrics, "ask", side_effect=AssertionError("asked twice")), \
+             mock.patch.object(metrics, "interactive", return_value=True):
+            self.assertEqual(metrics.maybe_ask(self.receipts), "declined")
+        self.assertEqual(out.getvalue(), "")
+
+    def test_yes_enables(self):
+        with mock.patch.object(metrics, "interactive", return_value=True), \
+             mock.patch.object(metrics.sys, "stdin", FakeStdin(["y\n"])):
+            self.assertEqual(metrics.maybe_ask(self.receipts), "enabled")
+        self.assertEqual(metrics.consent_status(), "enabled")
+
+    def test_d_shows_the_bytes_then_asks_again(self):
+        out = io.StringIO()
+        with mock.patch.object(metrics, "interactive", return_value=True), \
+             mock.patch.object(metrics.sys, "stdin", FakeStdin(["d\n", "n\n"])):
+            status = metrics.ask(self.receipts, stream=out)
+        self.assertEqual(status, "declined")
+        self.assertIn("install_id", out.getvalue(), "the payload must actually be shown")
+        self.assertEqual(out.getvalue().count("One question, once"), 2, "re-asks after showing")
+
+    def test_ci_never_prompts(self):
+        with mock.patch.dict(os.environ, {"CI": "1"}):
+            self.assertFalse(metrics.interactive())
 
 
 class TestCheckTypes(unittest.TestCase):

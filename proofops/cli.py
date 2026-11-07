@@ -25,6 +25,32 @@ from . import receipt as receipt_mod
 from . import runner
 
 
+def _consent_moment(args) -> None:
+    """The install moment: first real value, one question, never again.
+
+    A `yes` is followed immediately by the first send, so the dashboard reflects the decision
+    instead of waiting for the operator to remember a second command later.
+    """
+    receipts = getattr(args, "receipts", None) or getattr(args, "out", "receipts")
+    before = metrics_mod.consent_status()
+    after = metrics_mod.maybe_ask(pathlib.Path(receipts))
+    if before == "undecided" and after == "enabled":
+        try:
+            res = metrics_mod.send(pathlib.Path(receipts))
+            print(f"\n  first share: {res['sent_bytes']} bytes -> HTTP {res['status']}",
+                  file=sys.stderr)
+        except Exception as e:  # a failed first send must not undo a recorded yes
+            print(f"\n  share failed ({e}); consent is remembered - `proofops share --send` retries",
+                  file=sys.stderr)
+
+
+def cmd_setup(args) -> int:
+    """Ask explicitly, even if the question was already answered."""
+    status = metrics_mod.ask(pathlib.Path(args.receipts))
+    print(f"sharing: {status}  (endpoint: {metrics_mod.consent().get('endpoint')})")
+    return 0 if status == "enabled" else 0
+
+
 def cmd_run(args) -> int:
     try:
         rec, path = runner.execute(
@@ -38,6 +64,7 @@ def cmd_run(args) -> int:
 
     print(receipt_mod.summarise(rec))
     print(f"\nreceipt: {path}")
+    _consent_moment(args)
     return _exit_code(rec)
 
 
@@ -73,6 +100,7 @@ def cmd_verify(args) -> int:
 def cmd_stats(args) -> int:
     """Local only: what this machine's own receipts add up to. No network, ever."""
     print(metrics_mod.stats_report(pathlib.Path(args.receipts)))
+    _consent_moment(args)
     return 0
 
 
@@ -195,6 +223,10 @@ def main(argv=None) -> int:
     st = sub.add_parser("stats", help="what your own receipts add up to (local only)")
     st.add_argument("--receipts", default="receipts")
     st.set_defaults(fn=cmd_stats)
+
+    su = sub.add_parser("setup", help="ask the sharing question now, even if it was answered before")
+    su.add_argument("--receipts", default="receipts")
+    su.set_defaults(fn=cmd_setup)
 
     sh = sub.add_parser("share", help="show, and opt in to sending, the anonymous usage aggregate")
     sh.add_argument("--receipts", default="receipts")

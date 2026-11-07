@@ -92,7 +92,7 @@ def aggregate(records: dict[str, dict]) -> dict:
         "by_family": families(by_type),
         "versions": dict(versions.most_common()),
         "platforms": dict(platforms.most_common()),
-        "source": "self-reported by operators who ran `proofops share --enable`",
+        "source": "self-reported by operators who opted in at the install prompt or with `proofops share --enable`",
     }
 
 

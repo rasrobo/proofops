@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-07T00:28:16+00:00",
+  "generated_at": "2026-11-07T00:40:55+00:00",
   "installs": 1,
   "runs": 39,
   "checks": {
@@ -59,11 +59,11 @@
     }
   },
   "versions": {
-    "0.3.5": 1
+    "0.3.6": 1
   },
   "platforms": {
     "linux": 1
   },
-  "source": "self-reported by operators who ran `proofops share --enable`",
+  "source": "self-reported by operators who opted in at the install prompt or with `proofops share --enable`",
   "note": "Includes the author's own install, used to build and test the tool."
 }
