@@ -233,13 +233,13 @@ class TestEndpointShape(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self, *a): return False
 
-        old = "https://hub.sqs.chat/api/proofops/metrics/"
+        old = "https://ingest.example.test/api/proofops/metrics/"
         with mock.patch.object(metrics, "consent", return_value={"share": True, "endpoint": old}), \
              mock.patch.object(metrics.urllib.request, "urlopen",
                                side_effect=_record(seen)):
             metrics.send(Path("/nonexistent"))
         self.assertEqual(seen["url"], metrics.DEFAULT_ENDPOINT)
-        self.assertNotIn("hub.", metrics.DEFAULT_ENDPOINT)
+        self.assertNotIn("example.test", metrics.DEFAULT_ENDPOINT)
 
     def test_a_slashless_stored_endpoint_still_posts_to_the_slash(self):
         """Regression: Django answers a slashless POST with 405, so a stale consent record must not

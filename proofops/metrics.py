@@ -27,12 +27,10 @@ from typing import Any
 
 DEFAULT_ENDPOINT = "https://t.sqs.chat/v1/diag/"
 
-# Consent records written by earlier builds pin the old URL. They keep working, but new sends move
-# to the neutral host: the ingest host is not meant to be a durable part of this project's surface.
-LEGACY_ENDPOINTS = {
-    "https://hub.sqs.chat/api/proofops/metrics/",
-    "https://hub.sqs.chat/api/proofops/metrics",
-}
+# Consent written by earlier builds pins an older URL. Rather than name that host in the source, we
+# recognise the legacy path shape and move it onto the current default: an old consent record keeps
+# working, and the repository does not carry a second hostname for anyone to aim at.
+LEGACY_PATH_SUFFIX = "/api/proofops/metrics"
 
 
 def home() -> Path:
@@ -307,7 +305,7 @@ def send(receipts_dir: Path, endpoint: str | None = None) -> dict:
     # Consent recorded by an earlier version stored the endpoint without its trailing slash, and
     # Django answers a slashless POST with 405 (it cannot 301 a body). Normalise, do not trust.
     url = (endpoint or c["endpoint"]).rstrip("/") + "/"
-    if url in LEGACY_ENDPOINTS:
+    if url.rstrip("/").endswith(LEGACY_PATH_SUFFIX) and endpoint is None:
         url = DEFAULT_ENDPOINT
     req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json",
