@@ -110,12 +110,19 @@ The numbers are the only field feedback this project gets, and they drive the ba
 This is not a slogan: the `by_type` breakdown was added precisely because pass/fail could not say
 which check to work on next, and the public page states the current "next fix" line from the data.
 
-## Retention
+## Where the data lives
 
-The endpoint appends one line of JSON per share to `/app/data/proofops_metrics.ndjson` on the hub.
-No cookies, no IP logging, no user agent, no cross-request identifiers — the endpoint cannot tell
-two shares from the same install apart except by `install_id`, which the operator can rotate by
-deleting `~/.proofops/install.json`.
+The **store of record is a JSON file in this repository**: `docs/metrics/data.json`. It is committed,
+versioned, and it is the only thing the public page reads. If you want to know what the project
+knows, read that file — there is no database behind the page.
+
+Submissions are reduced to counters when they arrive. The individual records are not published, not
+kept as a growing archive, and not queryable; what persists is the aggregate. That is deliberate: a
+permanent log of per-install rows is a liability that buys nothing the counters do not already say.
+
+Nothing in this repository, the README or the public page names an ingest host, a filesystem path or
+a provider. The client holds one opaque HTTPS URL and knows nothing about what sits behind it —
+documenting infrastructure is how a small tool becomes somebody's practice target.
 
 ## What the page cannot prove
 
