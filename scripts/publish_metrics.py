@@ -71,6 +71,7 @@ def main() -> int:
     ap.add_argument("--ndjson", default=None)
     ap.add_argument("--from-hub", action="store_true")
     ap.add_argument("--out", default="docs/metrics/data.json")
+    ap.add_argument("--note", default="", help="one honest sentence rendered on the page")
     args = ap.parse_args()
 
     if args.from_hub:
@@ -85,6 +86,8 @@ def main() -> int:
         text = ""
 
     agg = aggregate(latest_per_install(text.splitlines()))
+    if args.note:
+        agg["note"] = args.note
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(agg, indent=2) + "\n")

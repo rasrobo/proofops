@@ -1,15 +1,20 @@
 {
-  "generated_at": "2026-11-06T23:52:42+00:00",
-  "installs": 0,
-  "runs": 0,
+  "generated_at": "2026-11-07T00:00:44+00:00",
+  "installs": 1,
+  "runs": 39,
   "checks": {
-    "pass": 0,
-    "fail": 0,
+    "pass": 120,
+    "fail": 12,
     "not_run": 0
   },
-  "total_checks": 0,
-  "pass_rate": null,
-  "versions": {},
-  "platforms": {},
-  "source": "self-reported by operators who ran `proofops share --enable`"
+  "total_checks": 132,
+  "pass_rate": 90.9,
+  "versions": {
+    "0.3.4": 1
+  },
+  "platforms": {
+    "linux": 1
+  },
+  "source": "self-reported by operators who ran `proofops share --enable`",
+  "note": "Includes the author's own install, used to build and test the tool."
 }

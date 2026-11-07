@@ -11,6 +11,8 @@ import sys
 import tempfile
 import unittest
 import uuid
+from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -85,6 +87,28 @@ class TestPayloadHasNoFingerprint(unittest.TestCase):
             self.assertEqual(first, second, "install id must be stable across runs")
             self.assertEqual(str(uuid.UUID(first)), first, "must parse as a uuid4")
             self.assertEqual(uuid.UUID(first).version, 4)
+
+
+class TestEndpointShape(unittest.TestCase):
+    def test_a_slashless_stored_endpoint_still_posts_to_the_slash(self):
+        """Regression: Django answers a slashless POST with 405, so a stale consent record must not
+        silently break sending. send() normalises instead of trusting the stored value."""
+        seen = {}
+
+        class Resp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout=None):
+            seen["url"] = req.full_url
+            return Resp()
+
+        with mock.patch.object(metrics, "consent", return_value={
+                "share": True, "endpoint": "https://example.test/api/x"}), \
+             mock.patch.object(metrics.urllib.request, "urlopen", side_effect=fake_urlopen):
+            metrics.send(Path("/nonexistent"))
+        self.assertEqual(seen["url"], "https://example.test/api/x/")
 
 
 class TestSanitise(unittest.TestCase):

@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-DEFAULT_ENDPOINT = "https://hub.sqs.chat/api/proofops/metrics"
+DEFAULT_ENDPOINT = "https://hub.sqs.chat/api/proofops/metrics/"
 
 
 def home() -> Path:
@@ -159,7 +159,10 @@ def send(receipts_dir: Path, endpoint: str | None = None) -> dict:
             "sharing is off — run `proofops share --dry-run` to see the payload, "
             "then `proofops share --enable` to opt in")
     body = payload_bytes(receipts_dir)
-    req = urllib.request.Request(endpoint or c["endpoint"], data=body, method="POST",
+    # Consent recorded by an earlier version stored the endpoint without its trailing slash, and
+    # Django answers a slashless POST with 405 (it cannot 301 a body). Normalise, do not trust.
+    url = (endpoint or c["endpoint"]).rstrip("/") + "/"
+    req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json",
                                           "User-Agent": "proofops-metrics"})
     with urllib.request.urlopen(req, timeout=10) as r:

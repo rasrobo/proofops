@@ -125,7 +125,8 @@ async function main(){
 
   document.getElementById('meta').textContent =
     `Generated ${d.generated_at || 'unknown'} · source: ${d.source || 'opt-in aggregate'} · ` +
-    `payload schema: install_id, version, platform, runs, plans, checks{pass,fail,not_run}.`;
+    `payload schema: install_id, version, platform, runs, plans, checks{pass,fail,not_run}.` +
+    (d.note ? ` ${d.note}` : "");
 }
 main();
 </script>

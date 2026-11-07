@@ -86,10 +86,12 @@ def cmd_share(args) -> int:
         metrics_mod.set_consent(False, args.endpoint)
         print("sharing disabled — nothing will be sent")
 
-    if args.dry_run or not args.enable:
+    # `share` alone is always a dry run; only --enable/--send reach the network, and --send still
+    # requires consent recorded on this machine. Remembering consent is not the same as using it.
+    if args.dry_run or not (args.enable or getattr(args, "send", False)):
         print(metrics_mod.payload_bytes(receipts).decode())
         if not args.enable and not args.disable:
-            print("\nNothing sent. This is `--dry-run` behaviour unless you pass --enable.")
+            print("\nNothing sent. Pass --enable to send (and remember), or --send to send again.")
         return 0
 
     try:
@@ -198,6 +200,7 @@ def main(argv=None) -> int:
     sh.add_argument("--receipts", default="receipts")
     sh.add_argument("--dry-run", action="store_true", help="print the payload and send nothing")
     sh.add_argument("--enable", action="store_true", help="record consent and send")
+    sh.add_argument("--send", action="store_true", help="send using consent recorded earlier")
     sh.add_argument("--disable", action="store_true", help="forget consent")
     sh.add_argument("--endpoint", default=None)
     sh.set_defaults(fn=cmd_share)
