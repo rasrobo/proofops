@@ -127,7 +127,7 @@ writes a plan asserting the shape it has now.
 Network access is HTTP GET only, against origins the plan declares. Command checks run the exact
 argv a plan lists, and only with operator opt-in. Receipts are written under the plugin's own data
 directory and contain observed values, hostname, cwd and command output. No credentials are read
-or stored; no telemetry by default (opt-in aggregate only, payload inspectable with `proofops share --dry-run`).
+or stored; no telemetry by default (opt-in aggregate only, payload inspectable with `proofops share --dry-run`); the aggregate is published at https://rasrobo.github.io/proofops/metrics/.
 
 ## Known limits
 

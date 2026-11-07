@@ -211,6 +211,11 @@ No paths, hostnames, plan names, receipt contents or command output — a test a
 contains none of those, and another asserts `urlopen` is never reached without recorded consent.
 `--disable` forgets the consent; nothing is sent again.
 
+The aggregate is published, not hoarded: **[rasrobo.github.io/proofops/metrics](https://rasrobo.github.io/proofops/metrics/)**
+shows installs, runs verified and check outcomes, including how many checks failed. Sanitising is an
+allow-list on both ends — an unrecognised version is stored as `unknown` and an unrecognised
+platform as `other`, so a client that sends a hostname or an email cannot store one.
+
 ## How it works
 
 ### Plans are data
