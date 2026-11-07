@@ -209,7 +209,38 @@ class TestCheckTypes(unittest.TestCase):
         self.assertNotIn("acme", json.dumps(out).lower())
 
 
+class _Resp:
+    status = 200
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+
+def _record(seen):
+    def _open(req, timeout=None):
+        seen["url"] = req.full_url
+        return _Resp()
+    return _open
+
+
 class TestEndpointShape(unittest.TestCase):
+    def test_a_legacy_stored_endpoint_moves_to_the_neutral_host(self):
+        """Consent recorded by an earlier build pins the old URL. It must keep working, and it must
+        not keep pointing the product's traffic at a host it no longer advertises."""
+        seen = {}
+
+        class Resp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        old = "https://hub.sqs.chat/api/proofops/metrics/"
+        with mock.patch.object(metrics, "consent", return_value={"share": True, "endpoint": old}), \
+             mock.patch.object(metrics.urllib.request, "urlopen",
+                               side_effect=_record(seen)):
+            metrics.send(Path("/nonexistent"))
+        self.assertEqual(seen["url"], metrics.DEFAULT_ENDPOINT)
+        self.assertNotIn("hub.", metrics.DEFAULT_ENDPOINT)
+
     def test_a_slashless_stored_endpoint_still_posts_to_the_slash(self):
         """Regression: Django answers a slashless POST with 405, so a stale consent record must not
         silently break sending. send() normalises instead of trusting the stored value."""

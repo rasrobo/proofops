@@ -25,7 +25,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-DEFAULT_ENDPOINT = "https://hub.sqs.chat/api/proofops/metrics/"
+DEFAULT_ENDPOINT = "https://t.sqs.chat/v1/diag/"
+
+# Consent records written by earlier builds pin the old URL. They keep working, but new sends move
+# to the neutral host: the ingest host is not meant to be a durable part of this project's surface.
+LEGACY_ENDPOINTS = {
+    "https://hub.sqs.chat/api/proofops/metrics/",
+    "https://hub.sqs.chat/api/proofops/metrics",
+}
 
 
 def home() -> Path:
@@ -300,6 +307,8 @@ def send(receipts_dir: Path, endpoint: str | None = None) -> dict:
     # Consent recorded by an earlier version stored the endpoint without its trailing slash, and
     # Django answers a slashless POST with 405 (it cannot 301 a body). Normalise, do not trust.
     url = (endpoint or c["endpoint"]).rstrip("/") + "/"
+    if url in LEGACY_ENDPOINTS:
+        url = DEFAULT_ENDPOINT
     req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json",
                                           "User-Agent": "proofops-metrics"})

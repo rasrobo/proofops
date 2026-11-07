@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-07T00:40:55+00:00",
+  "generated_at": "2026-11-07T01:00:22+00:00",
   "installs": 1,
   "runs": 39,
   "checks": {
@@ -59,7 +59,7 @@
     }
   },
   "versions": {
-    "0.3.6": 1
+    "0.3.9": 1
   },
   "platforms": {
     "linux": 1
