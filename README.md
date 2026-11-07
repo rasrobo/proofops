@@ -189,7 +189,7 @@ Exit codes are a contract: `0` all checks passed · `1` a check failed · `2` th
 performed (bad plan, an origin the plan never declared, a command the operator never authorised).
 A caller that ignores every line of output can still trust the exit code.
 
-## Metrics — off by default
+## Diagnostics — off by default
 
 It asks **once**, at the only moment you have a receipt worth counting — after your first run. One
 screen, Enter means no, and it never asks again:

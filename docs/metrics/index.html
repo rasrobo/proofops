@@ -52,8 +52,9 @@
 <div class="wrap">
   <div class="eyebrow">ProofOps · measured use</div>
   <h1>The numbers, from the people who opted in</h1>
-  <p class="sub">Every figure here arrived through <code>proofops share --enable</code> — an explicit
-  opt-in that prints the exact payload first. Installs that never opt in are simply not counted,
+  <p class="sub">Every figure here arrived as an explicit opt-in: the "Send anonymous diagnostics"
+  checkbox offered once, after the first run. Saying yes sends nine counters; saying no is remembered
+  and never asked again. Installs that never opt in are simply not counted,
   which is the honest denominator: this page reports its own coverage, not the internet's.</p>
 
   <div class="grid" id="stats"></div>
@@ -79,7 +80,7 @@
   <table><thead><tr><th>platform</th><th class="n">installs</th></tr></thead><tbody id="platforms"></tbody></table>
 
   <div class="note">
-    <b>What we do with these numbers.</b> They are the only feedback this tool gets. The check type
+    <b>What we do with these diagnostics.</b> They are the only feedback this tool gets. The check type
     with the most checks that <em>could not run</em> is the next thing we fix, and the type with the
     most failures gets the next diagnostic. Opting in is a vote for what gets built next.
     <div id="signal" style="margin-top:10px;font-family:var(--mono);font-size:.82rem;color:var(--text)"></div>

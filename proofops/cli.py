@@ -224,11 +224,11 @@ def main(argv=None) -> int:
     st.add_argument("--receipts", default="receipts")
     st.set_defaults(fn=cmd_stats)
 
-    su = sub.add_parser("setup", help="ask the sharing question now, even if it was answered before")
+    su = sub.add_parser("setup", help="ask about anonymous diagnostics now, even if already answered")
     su.add_argument("--receipts", default="receipts")
     su.set_defaults(fn=cmd_setup)
 
-    sh = sub.add_parser("share", help="show, and opt in to sending, the anonymous usage aggregate")
+    sh = sub.add_parser("share", help="show, send or stop the anonymous diagnostics payload")
     sh.add_argument("--receipts", default="receipts")
     sh.add_argument("--dry-run", action="store_true", help="print the payload and send nothing")
     sh.add_argument("--enable", action="store_true", help="record consent and send")

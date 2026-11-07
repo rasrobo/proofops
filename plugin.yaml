@@ -1,6 +1,6 @@
 name: proofops
-version: "0.3.7"
-description: "Verification for completion claims. Hermes runs a declared plan of read-only checks against a target and gets a receipt: what passed, what was actually observed, and — printed on every receipt — what passing does not prove. Refuses to run a command the plan never declared or the operator never authorised. No telemetry by default; `proofops share` sends an anonymous aggregate only after explicit opt-in, and prints the exact payload first."
+version: "0.3.8"
+description: "Verification for completion claims. Hermes runs a declared plan of read-only checks against a target and gets a receipt: what passed, what was actually observed, and — printed on every receipt — what passing does not prove. Refuses to run a command the plan never declared or the operator never authorised. No telemetry by default; with an explicit opt-in it sends anonymous diagnostics (nine counters the operator can print byte for byte first) that decide which check types get fixed next."
 author: "Side Quest Studios"
 license: "MIT"
 requires_hermes: ">=0.21.5"

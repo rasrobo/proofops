@@ -149,7 +149,14 @@ class TestConsentPrompt(unittest.TestCase):
             status = metrics.ask(self.receipts, stream=out)
         self.assertEqual(status, "declined")
         self.assertIn("install_id", out.getvalue(), "the payload must actually be shown")
-        self.assertEqual(out.getvalue().count("One question, once"), 2, "re-asks after showing")
+        self.assertEqual(out.getvalue().count("Help improve ProofOps"), 2, "re-asks after showing")
+        self.assertIn("[ ] Send anonymous diagnostics", out.getvalue())
+
+    def test_the_box_is_square(self):
+        """A hand-aligned ASCII box drifts by a column the moment a line is edited; the title bar
+        ended one column short of the body twice while writing this. Every line must match."""
+        widths = {len(l) for l in metrics.PITCH.splitlines() if l.strip()}
+        self.assertEqual(len(widths), 1, f"misaligned box: line widths {sorted(widths)}")
 
     def test_ci_never_prompts(self):
         with mock.patch.dict(os.environ, {"CI": "1"}):

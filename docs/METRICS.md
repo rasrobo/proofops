@@ -1,4 +1,4 @@
-# Metrics — what leaves your machine, exactly
+# Diagnostics — what leaves your machine, exactly
 
 This is the authoritative description of the opt-in aggregate ProofOps can send, and of the public
 page it feeds: **https://rasrobo.github.io/proofops/metrics/**

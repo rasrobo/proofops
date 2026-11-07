@@ -94,31 +94,46 @@ def interactive() -> bool:
         return False
 
 
-PITCH = """
-  --------------------------------------------------------------
-  One question, once - then I never ask again.
+_WIDTH = 64  # every rendered line is exactly this wide
 
-  Your runs are the only feedback this tool ever gets. Nobody is watching a
-  dashboard at 2am: the counts are how we find out which checks are failing in
-  the field, and which ones cannot even run - and that is what gets fixed next.
 
-  So saying yes is not a favour to us. It is a vote for what gets built.
+def _frame_title(title: str) -> str:
+    """`  +-- Title ---+` padded so the closing + lands on column _WIDTH."""
+    left = f"  +-- {title} "
+    return left + "-" * (_WIDTH - len(left) - 1) + "+"
 
-  If you opt in, after each run you choose, it sends nine counters and nothing
-  else:
 
-    a random install id   version   platform   runs   plans
-    pass / fail / not-run totals   ...and the same totals per check type
+def _frame_line(text: str = "") -> str:
+    return "  | " + text.ljust(_WIDTH - 6) + " |"
 
-  NEVER: paths, hostnames, plan names, receipt contents, or command output.
 
-  Everyone's counts land on one public page, failures included - so you can see
-  what your runs contributed: rasrobo.github.io/proofops/metrics
+def _pitch() -> str:
+    """Built, not hand-aligned: a literal box drifts by a column the moment a line is edited."""
+    body = [
+        "",
+        "[ ] Send anonymous diagnostics",
+        "",
+        "Nine counters per run: version, platform, run and plan",
+        "counts, pass / fail / not-run, and the same per check",
+        "type. They tell us which checks fail in the field and",
+        "which cannot run at all, so those get fixed first.",
+        "",
+        "Never sent: paths, hostnames, plan names, receipt",
+        "contents or command output. No account, no machine id -",
+        "a random id generated on this machine.",
+        "",
+        "Anyone can see the totals, failures included:",
+        "rasrobo.github.io/proofops/metrics",
+        "",
+        "  [y] check the box        [d] show the exact bytes",
+        "  [Enter] leave it unchecked - and do not ask again",
+    ]
+    lines = [_frame_title("Help improve ProofOps")] + [_frame_line(t) for t in body]
+    lines.append("  +" + "-" * (_WIDTH - 4) + "+")
+    return "\n" + "\n".join(lines) + "\n"
 
-    [y] count my runs anonymously      [d] show me the exact bytes first
-    [Enter] no - and do not ask again
-  --------------------------------------------------------------
-"""
+
+PITCH = _pitch()
 
 
 def ask(receipts_dir: Path, stream=None) -> str:
@@ -141,11 +156,12 @@ def ask(receipts_dir: Path, stream=None) -> str:
             continue
         if answer in ("y", "yes", "1"):
             set_consent(True)
-            print("  counting this install anonymously. `proofops share --disable` undoes it.",
+            print("  [x] diagnostics on - thank you. `proofops share --disable` turns it off.",
                   file=stream)
             return "enabled"
         set_consent(False)
-        print("  no problem - nothing will be sent, and I will not ask again.", file=stream)
+        print("  [ ] diagnostics left off. Nothing is sent, and I will not ask again.",
+              file=stream)
         return "declined"
 
 
