@@ -120,8 +120,8 @@ Submissions are reduced to counters when they arrive. The individual records are
 kept as a growing archive, and not queryable; what persists is the aggregate. That is deliberate: a
 permanent log of per-install rows is a liability that buys nothing the counters do not already say.
 
-Nothing in this repository, the README or the public page names an ingest host, a filesystem path or
-a provider. The client holds one opaque HTTPS URL and knows nothing about what sits behind it —
+Outside the client's single copy of that URL, nothing here names an ingest host, a filesystem path
+or a provider. The URL is a dull name that says nothing about the product or what sits behind it —
 documenting infrastructure is how a small tool becomes somebody's practice target.
 
 ## What the page cannot prove
