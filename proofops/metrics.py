@@ -98,17 +98,22 @@ PITCH = """
   --------------------------------------------------------------
   One question, once - then I never ask again.
 
-  ProofOps can only prove it is useful if someone can see it being used. If you
-  say yes, after each run you choose, it sends nine fields and nothing else:
+  Your runs are the only feedback this tool ever gets. Nobody is watching a
+  dashboard at 2am: the counts are how we find out which checks are failing in
+  the field, and which ones cannot even run - and that is what gets fixed next.
+
+  So saying yes is not a favour to us. It is a vote for what gets built.
+
+  If you opt in, after each run you choose, it sends nine counters and nothing
+  else:
 
     a random install id   version   platform   runs   plans
     pass / fail / not-run totals   ...and the same totals per check type
 
   NEVER: paths, hostnames, plan names, receipt contents, or command output.
 
-  It is the difference between "a tool exists" and "this tool checked 136 things
-  on real systems, and 12 of them failed". The dashboard is public, failures
-  included: rasrobo.github.io/proofops/metrics
+  Everyone's counts land on one public page, failures included - so you can see
+  what your runs contributed: rasrobo.github.io/proofops/metrics
 
     [y] count my runs anonymously      [d] show me the exact bytes first
     [Enter] no - and do not ask again

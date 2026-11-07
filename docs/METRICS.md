@@ -96,6 +96,20 @@ that reported twice. The publisher keeps the **latest record per `install_id`** 
 The page reports `installs`, `runs`, `checks`, `pass_rate`, the per-type table, the per-family
 breakdown (derived at publish time, never sent), plus the versions and platforms in use.
 
+## What we actually do with it
+
+The numbers are the only field feedback this project gets, and they drive the backlog:
+
+1. The check type with the most **not-run** checks is the next fix. A check that cannot run is a
+   defect in the tool, not in the user's plan.
+2. The type with the most **failures** gets the next diagnostic message — the count says where the
+   friction is, not what it is.
+3. Failures that never appear in any type are a signal too: it means that check is either perfect or
+   never used, and one of those is worth knowing.
+
+This is not a slogan: the `by_type` breakdown was added precisely because pass/fail could not say
+which check to work on next, and the public page states the current "next fix" line from the data.
+
 ## Retention
 
 The endpoint appends one line of JSON per share to `/app/data/proofops_metrics.ndjson` on the hub.

@@ -199,6 +199,10 @@ screen, Enter means no, and it never asks again:
   [Enter] no - and do not ask again
 ```
 
+It is framed as what it is: your runs are the only feedback the project gets, so opting in is a vote
+for what gets fixed next — the check type with the most checks that *could not run* is the next
+thing on the list, and the public page names it.
+
 No default-yes, no countdown, no pre-ticked box: a prompt that could be defaulted into consent
 would make every number on the public page a lie. Answering `y` sends the first one immediately, so
 the decision shows up on the dashboard rather than waiting for you to remember a second command.

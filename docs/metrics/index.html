@@ -79,6 +79,11 @@
   <table><thead><tr><th>platform</th><th class="n">installs</th></tr></thead><tbody id="platforms"></tbody></table>
 
   <div class="note">
+    <b>What we do with these numbers.</b> They are the only feedback this tool gets. The check type
+    with the most checks that <em>could not run</em> is the next thing we fix, and the type with the
+    most failures gets the next diagnostic. Opting in is a vote for what gets built next.
+    <div id="signal" style="margin-top:10px;font-family:var(--mono);font-size:.82rem;color:var(--text)"></div>
+    <br>
     <b>What this page proves.</b> That this many installs opted in and reported these cumulative
     counts. It does not prove the counts are true, that the work verified was important, or that a
     single defect was caught — a check that passes is not a defect avoided.
@@ -156,6 +161,17 @@ async function main(){
     ? Object.entries(bt).map(([t, c2]) => `<tr><td>${t}</td><td class="n">${fmt(c2.pass)}</td>
         <td class="n">${fmt(c2.fail)}</td><td class="n">${fmt(c2.not_run)}</td></tr>`).join('')
     : '<tr><td colspan="4" style="color:var(--dim)">no type breakdown yet</td></tr>';
+
+  // The loop, made visible: the worst not-run rate is stated as the next thing to fix.
+  const bt0 = d.by_type || {};
+  const worst = Object.entries(bt0)
+    .filter(([, c2]) => (c2.not_run || 0) > 0)
+    .sort((a, b) => (b[1].not_run || 0) - (a[1].not_run || 0))[0];
+  const worstFail = Object.entries(bt0)
+    .sort((a, b) => (b[1].fail || 0) - (a[1].fail || 0))[0];
+  document.getElementById('signal').textContent = worst
+    ? `→ next fix: ${worst[0]} — ${fmt(worst[1].not_run)} check(s) could not run`
+    : (worstFail && worstFail[1].fail ? `→ next fix: ${worstFail[0]} — ${fmt(worstFail[1].fail)} failure(s)` : '');
 
   rows(d.versions, 'versions');
   rows(d.platforms, 'platforms');
