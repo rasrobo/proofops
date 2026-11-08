@@ -15,7 +15,8 @@ It is the missing verification step between an agent saying "done" and anyone re
 
 [`docs/EXECUTIVE-SUMMARY.md`](docs/EXECUTIVE-SUMMARY.md) is the two-minute version for someone who
 will never read the code. [`docs/JUDGING.md`](docs/JUDGING.md) maps every claim to the artefact and
-the link that proves it.
+the link that proves it, and [`docs/RECEIPTS.md`](docs/RECEIPTS.md) shows it running against real
+public services — observed values included, so you can see it work on things nobody here built.
 
 ---
 

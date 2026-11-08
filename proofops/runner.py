@@ -54,7 +54,13 @@ def execute(
         try:
             ok, evidence = fn(spec, target)
         except KeyError as e:
-            ok, evidence = False, {"error": f"check is missing required key {e}"}
+            # A malformed check is a defect in the PLAN, not in the target: nothing was tested, so
+            # this must never read as "the service failed". NOT RUN, with the key that is missing.
+            ok = None
+            evidence = {
+                "error": f"check is missing required key {e}",
+                "how_to_fix": f"add {e} to this check, or run `proofops new` for a valid template",
+            }
         results.append({
             "id": spec["id"], "type": spec["type"], "passed": ok,
             "proves": spec["proves"], "started_at": started, "evidence": evidence,

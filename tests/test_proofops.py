@@ -9,6 +9,7 @@ that a command check cannot run without two independent opt-ins.
 """
 
 import json
+from pathlib import Path
 import pathlib
 import sys
 import tempfile
@@ -360,6 +361,30 @@ class TestReceipt(unittest.TestCase):
             {"id": "c", "type": "t", "passed": True, "proves": "x",
              "started_at": "2026-01-01T00:00:00+00:00", "evidence": {}}])
         self.assertEqual(rec["plan_revision"], "sha256:abc")
+
+
+class TestMalformedCheckIsNotAFailure(unittest.TestCase):
+    def test_missing_required_key_is_not_run_not_fail(self):
+        """A broken check is a defect in the plan. Counting it as a failure tells the operator their
+        service is broken when in fact nothing was ever tested."""
+        import tempfile
+        from proofops import runner
+
+        with tempfile.TemporaryDirectory() as td:
+            plan = Path(td, "p.json")
+            plan.write_text(json.dumps({
+                "name": "broken", "target_kind": "public-readonly",
+                "allowed_origins": ["https://example.com"],
+                "does_not_prove": ["anything"],
+                "checks": [{"id": "h", "type": "http_header", "path": "/", "header": "x-anything",
+                            "proves": "a header exists"}],   # no `equals`
+            }))
+            rec, _ = runner.execute(str(plan), "https://example.com", out=td)
+        check = rec["checks"][0]
+        self.assertIsNone(check["passed"], "must be NOT RUN")
+        self.assertIn("missing required key", check["evidence"]["error"])
+        self.assertIn("how_to_fix", check["evidence"])
+        self.assertEqual(rec["summary"]["verdict"], "INCOMPLETE")
 
 
 class TestCliExitCodes(unittest.TestCase):
