@@ -14,7 +14,8 @@ result, what that result proves, and — printed on every receipt — what passi
 It is the missing verification step between an agent saying "done" and anyone relying on it.
 
 [`docs/EXECUTIVE-SUMMARY.md`](docs/EXECUTIVE-SUMMARY.md) is the two-minute version for someone who
-will never read the code.
+will never read the code. [`docs/JUDGING.md`](docs/JUDGING.md) maps every claim to the artefact and
+the link that proves it.
 
 ---
 
@@ -153,7 +154,28 @@ not write for you — "the message landed", "the report went out", "the tests ra
 python3 -m proofops verify receipts/PO-….json      # valid / tampered / unsealed / needs-key
 ```
 
-## Install
+## See it work first — 20 seconds, no config
+
+```bash
+pipx install git+https://github.com/rasrobo/proofops   # or: pip install --user ...
+proofops demo
+```
+
+The demo builds its own fixture, serves it on loopback and runs a real plan against it. One check
+passes — the endpoint really does answer 200 — and the next one fails, because the service says
+`degraded`. Then it edits the receipt and shows verification catch the edit:
+
+```
+[PASS] reachable: the endpoint answers 200
+[FAIL] says-ok: the service says it is healthy, rather than a proxy answering for it
+       observed: {"expected": "ok", "observed": "degraded", "http_status": 200}
+original receipt: valid
+edited receipt:   tampered
+```
+
+Nothing leaves the machine: no network, no account, no config file.
+
+## Install as a Hermes plugin
 
 ```bash
 hermes plugins install https://github.com/rasrobo/proofops

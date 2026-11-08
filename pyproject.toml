@@ -4,12 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proofops"
-version = "0.1.0"
+# Read from the package, not typed here: the hard-coded version drifted to 0.1.0 while the code was
+# at 0.3.x, so `pip show proofops` disagreed with `proofops --version` on an installer's machine.
+dynamic = ["version"]
 description = "Independent verification of agent completion claims"
+readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["verification", "agents", "receipts", "testing", "observability"]
 
 [project.scripts]
 proofops = "proofops.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/rasrobo/proofops"
+Documentation = "https://github.com/rasrobo/proofops#readme"
+
 [tool.setuptools]
 packages = ["proofops"]
+
+[tool.setuptools.dynamic]
+version = {attr = "proofops.__version__"}

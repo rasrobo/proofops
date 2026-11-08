@@ -44,6 +44,11 @@ def _consent_moment(args) -> None:
                   file=sys.stderr)
 
 
+def cmd_demo(args) -> int:
+    from . import demo as demo_mod
+    return demo_mod.run()
+
+
 def cmd_setup(args) -> int:
     """Ask explicitly, even if the question was already answered."""
     status = metrics_mod.ask(pathlib.Path(args.receipts))
@@ -223,6 +228,9 @@ def main(argv=None) -> int:
     st = sub.add_parser("stats", help="what your own receipts add up to (local only)")
     st.add_argument("--receipts", default="receipts")
     st.set_defaults(fn=cmd_stats)
+
+    dm = sub.add_parser("demo", help="run a self-contained demo: a defect, caught, in 20 seconds")
+    dm.set_defaults(fn=cmd_demo)
 
     su = sub.add_parser("setup", help="ask about anonymous diagnostics now, even if already answered")
     su.add_argument("--receipts", default="receipts")

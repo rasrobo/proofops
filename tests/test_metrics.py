@@ -163,6 +163,25 @@ class TestConsentPrompt(unittest.TestCase):
             self.assertFalse(metrics.interactive())
 
 
+class TestDemo(unittest.TestCase):
+    def test_the_demo_shows_a_pass_a_fail_and_a_tamper(self):
+        """The demo is the product's first 20 seconds. If it ever stops demonstrating the delta -
+        a 200 that passes while the claim fails - it is worse than no demo."""
+        import io
+        from proofops import demo
+
+        out = io.StringIO()
+        code = demo.run(stream=out)
+        text = out.getvalue()
+
+        self.assertEqual(code, 0)
+        self.assertIn("[PASS] reachable", text)
+        self.assertIn("[FAIL] says-ok", text)
+        self.assertIn("original receipt: valid", text)
+        self.assertIn("edited receipt:   tampered", text)
+        self.assertIn("Not verified", text, "the receipt must print what it did NOT check")
+
+
 class TestCheckTypes(unittest.TestCase):
     def test_the_client_type_list_matches_the_registry(self):
         """If a check type is added to REGISTRY and not here, its counts silently vanish from the
