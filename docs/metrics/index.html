@@ -23,6 +23,14 @@
   .card .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
   .card .v{font-family:var(--mono);font-size:2rem;font-weight:600;margin-top:8px;font-variant-numeric:tabular-nums}
   .card .n{font-size:.78rem;color:var(--dim);margin-top:4px}
+  .try{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin:26px 0 30px;
+       padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+  .try b{display:block;margin-bottom:8px;font-size:.92rem}
+  .try code{display:block;font-family:var(--mono);font-size:.78rem;color:var(--green);
+            word-break:break-all;line-height:1.5}
+  .tryout{font-family:var(--mono);font-size:.74rem;color:var(--dim);white-space:pre-wrap;
+          line-height:1.5;border-left:2px solid var(--line);padding-left:12px}
+  @media (max-width:700px){.try{grid-template-columns:1fr}}
   .bars{margin:34px 0 8px}
   .bar{height:14px;border-radius:7px;background:var(--line);display:flex;overflow:hidden}
   .bar span{display:block;height:100%}
@@ -56,6 +64,16 @@
   checkbox offered once, after the first run. Saying yes sends nine counters; saying no is remembered
   and never asked again. Installs that never opt in are simply not counted,
   which is the honest denominator: this page reports its own coverage, not the internet's.</p>
+
+  <div class="try">
+    <div>
+      <b>Twenty seconds, no account, nothing leaves your machine</b>
+      <code>pipx install git+https://github.com/rasrobo/proofops &amp;&amp; proofops demo</code>
+    </div>
+    <div class="tryout">[PASS] reachable: the endpoint answers 200
+[FAIL] says-ok: the service says it is healthy
+       observed: {"expected": "ok", "observed": "degraded"}</div>
+  </div>
 
   <div class="grid" id="stats"></div>
 
