@@ -3,6 +3,8 @@
 [![verify](https://github.com/rasrobo/proofops/actions/workflows/verify.yml/badge.svg)](https://github.com/rasrobo/proofops/actions/workflows/verify.yml)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/robodigitalis)
 
+![proofops demo: a 200 that passes while the claim fails, then a forged receipt caught](docs/demo.svg)
+
 ### Your agent said "done". This is the receipt that proves it — or shows you the gap.
 
 ProofOps is a **Hermes Agent plugin** — and a standalone Python CLI — for verifying what an AI agent

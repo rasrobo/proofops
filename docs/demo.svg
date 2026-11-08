@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="870" height="401" viewBox="0 0 870 401" role="img" aria-label="Terminal running proofops demo: one check passes on a 200, the next fails because the service reports degraded, and a forged receipt is detected as tampered.">
+  <rect width="870" height="401" rx="12" fill="#0b0f15"/>
+  <rect width="870" height="34" rx="12" fill="#121826"/>
+  <rect y="22" width="870" height="12" fill="#121826"/>
+  <circle cx="22" cy="17" r="6" fill="#ff5f57"/>
+  <circle cx="42" cy="17" r="6" fill="#febc2e"/>
+  <circle cx="62" cy="17" r="6" fill="#28c840"/>
+  <text x="435" y="22" fill="#8b98ac" font-family="ui-monospace,Menlo,monospace" font-size="12" text-anchor="middle">proofops demo</text>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15">
+        <text x="26" y="75" fill="#e6edf3" font-weight="600" xml:space="preserve">  proofops demo — a green tick that lies, caught in about 20 seconds</text>
+    <text x="26" y="96" fill="#e6edf3" font-weight="400" xml:space="preserve">fixture: http://127.0.0.1:33823/health.json answers 200 and reports {&quot;status&quot;: &quot;degrade…</text>
+    <text x="26" y="117" fill="#e6edf3" font-weight="600" xml:space="preserve">ProofOps run PO-20261108T024102Z-36f8 fail:</text>
+    <text x="26" y="138" fill="#e6edf3" font-weight="400" xml:space="preserve">  plan      demo: does this service actually work? (sha256:dc73eceb835ef002)</text>
+    <text x="26" y="159" fill="#4ade80" font-weight="600" xml:space="preserve">  [PASS] reachable: the endpoint answers 200</text>
+    <text x="26" y="180" fill="#f87171" font-weight="600" xml:space="preserve">  [FAIL] says-ok: the service says it is healthy, rather than a proxy answering for it</text>
+    <text x="26" y="201" fill="#f87171" font-weight="600" xml:space="preserve">         observed: {&quot;expected&quot;: &quot;ok&quot;, &quot;observed&quot;: &quot;degraded&quot;, &quot;http_status&quot;: 200,</text>
+    <text x="26" y="222" fill="#8b98ac" font-weight="400" xml:space="preserve">                   (full evidence also carries url, field,</text>
+    <text x="26" y="243" fill="#8b98ac" font-weight="400" xml:space="preserve">                    mode, elapsed_ms in the receipt)</text>
+    <text x="26" y="264" fill="#e6edf3" font-weight="400" xml:space="preserve">  Not verified:</text>
+    <text x="26" y="285" fill="#8b98ac" font-weight="400" xml:space="preserve">    - that the rows are correct, only that there are three of them</text>
+    <text x="26" y="306" fill="#8b98ac" font-weight="400" xml:space="preserve">    - that anyone has read the export</text>
+    <text x="26" y="327" fill="#e6edf3" font-weight="400" xml:space="preserve">  Now edit the receipt: flip the failed check to passed, as a hurried agent might.</text>
+    <text x="26" y="348" fill="#e6edf3" font-weight="400" xml:space="preserve">    original receipt: valid</text>
+    <text x="26" y="369" fill="#f87171" font-weight="600" xml:space="preserve">    edited receipt:   tampered  (the body does not match the sealed digest — it was edi…</text>
+  </g>
+</svg>
