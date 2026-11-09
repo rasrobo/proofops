@@ -6,7 +6,17 @@ X Demo Post Link · one more (repo/PR) — so the X post must exist before the f
 
 Answers for the first three are below; the X link comes from the posted thread.
 
-**Deadline: 11 November 2026, 17:00 EST.** Three things, in this order. Only two of them need you.
+**Deadline: 11 November 2026, 13:00 PST (16:00 EST)** — that is the time the organiser's own
+confirmation screen states. **Submitted 2026-11-09.** Three things were required; all three are done:
+
+| | |
+|---|---|
+| Demo video, public | youtu.be/3ee1VbHZpXo (74 s) |
+| X thread tagging @NousResearch | x.com/stephanunc/status/2118762360324399271 |
+| Submission form | **Submission Received** — screenshot at `docs/evidence/submission-confirmed-2026-11-09.png` |
+
+The fields submitted were: title *ProofOps*; the one-liner below; stephanunc@gmail.com; discord
+`robodigitalis`; the X post URL; and the catalogue PR link.
 
 | # | the ask | status |
 |---|---|---|
