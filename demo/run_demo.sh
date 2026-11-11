@@ -22,9 +22,24 @@ pause() {
 cleanup() { [ -n "${FIXPID:-}" ] && kill "$FIXPID" 2>/dev/null || true; }
 trap cleanup EXIT
 
-if curl -s --max-time 1 "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
-  echo "port ${PORT} is already serving something — a stale fixture is a false green." >&2
-  echo "stop it first:  pkill -f readiness_server.py" >&2
+if ! python3 - "$PORT" <<'PY'
+# Ask the kernel, not the service: a stuck process on this port answers nothing, so an
+# HTTP probe misses it — and then the fixture fails to bind while the plan talks to the
+# squatter, which reads as a product FAIL instead of a dirty environment.
+import socket, sys
+sock = socket.socket()
+# Same option HTTPServer uses, or a lingering TIME_WAIT from the last run reads as "busy".
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+    sock.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+PY
+then
+  echo "port ${PORT} is already bound — a stale fixture here is either a false green or a" >&2
+  echo "false red. Find it:  ss -ltnp | grep ${PORT}" >&2
   exit 1
 fi
 
@@ -36,7 +51,11 @@ pause "the plan is data; its revision is the contract"
 
 python3 "$ROOT/fixtures/readiness_server.py" "$PORT" >/dev/null 2>&1 &
 FIXPID=$!
-sleep 1
+# Readiness, not a fixed sleep: a slow start must not be recorded as a failing service.
+for _ in $(seq 1 50); do
+  curl -s --max-time 1 "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1 && break
+  sleep 0.1
+done
 
 echo
 echo "──────────────────────────────────────────────────────────────"

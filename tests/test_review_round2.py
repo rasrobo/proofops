@@ -219,6 +219,52 @@ class TestNoPromptClaim(unittest.TestCase):
 REAL_GETADDRINFO = socket.getaddrinfo
 
 
+class TestNonPublicAddresses(unittest.TestCase):
+    """The classification itself, across every family a metadata endpoint hides in."""
+
+    def setUp(self):
+        self._prev = checks_mod.allow_local_targets()
+        checks_mod.set_network_policy(False)
+
+    def tearDown(self):
+        checks_mod.set_network_policy(self._prev)
+
+    NON_PUBLIC = (
+        # loopback, RFC 1918, link-local, metadata, multicast, reserved, unspecified
+        "127.0.0.1", "127.1.2.3", "10.0.0.1", "172.16.0.1", "192.168.1.1",
+        "169.254.169.254", "0.0.0.0", "224.0.0.1", "240.0.0.1", "255.255.255.255",
+        "198.18.0.1",
+        # FOUND BY THIS TEST: CGNAT / shared space. `is_private` does not cover it, and
+        # Alibaba's instance metadata service answers on 100.100.100.200.
+        "100.64.0.1", "100.100.100.200", "::ffff:100.100.100.200",
+        # OCI metadata, and the deprecated 6to4 relay anycast
+        "192.0.0.192", "192.88.99.1",
+        # IPv6 loopback, ULA, link-local, translation, 6to4, documentation
+        "[::1]", "[fc00::1]", "[fd12:3456::1]", "[fe80::1]", "[64:ff9b::1]",
+        "[64:ff9b:1::1]", "[2002:c0a8:101::1]", "[2001:db8::1]",
+        # names that resolve inward
+        "localhost",
+    )
+    PUBLIC = ("1.1.1.1", "8.8.8.8", "93.184.216.34", "[2606:4700::1111]")
+
+    def test_every_non_public_family_is_refused(self):
+        for target in self.NON_PUBLIC:
+            with self.subTest(target=target):
+                with self.assertRaises(ValueError):
+                    checks_mod._resolve_public(f"http://{target}/")
+
+    def test_public_addresses_are_still_allowed(self):
+        for target in self.PUBLIC:
+            with self.subTest(target=target):
+                host, _port, addresses = checks_mod._resolve_public(f"http://{target}/")
+                self.assertTrue(addresses, host)
+
+    def test_the_operator_can_still_allow_local_targets(self):
+        checks_mod.set_network_policy(True)
+        _host, _port, addresses = checks_mod._resolve_public("http://169.254.169.254/")
+        self.assertEqual(addresses, ["169.254.169.254"])
+
+
 def _dns_returning(answers):
     """A stand-in resolver: a name consumes the next answer, an IP literal needs none.
 

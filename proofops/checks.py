@@ -29,6 +29,17 @@ MAX_BODY = 2 * 1024 * 1024  # never pull more than 2 MB into a receipt
 # including the cloud metadata address, from a machine that may hold credentials.
 _ALLOW_LOCAL = False
 
+# Never reachable, whatever the stdlib's private-network tables say. 100.64.0.0/10 is the
+# shared (CGNAT) block; 192.0.0.0/24 is IETF protocol assignments (Oracle's metadata service
+# answers on 192.0.0.192); 192.88.99.0/24 is the deprecated 6to4 relay anycast;
+# 64:ff9b:1::/48 is IPv4/IPv6 translation for local use.
+_NEVER_PUBLIC = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("192.0.0.0/24"),
+    ipaddress.ip_network("192.88.99.0/24"),
+    ipaddress.ip_network("64:ff9b:1::/48"),
+)
+
 
 def set_network_policy(allow_local: bool) -> None:
     """Set by the runner for each run. Default False: local targets are refused."""
@@ -38,6 +49,23 @@ def set_network_policy(allow_local: bool) -> None:
 
 def allow_local_targets() -> bool:
     return _ALLOW_LOCAL
+
+
+def _is_non_public(ip) -> bool:
+    """True when an address must never be reached by a check.
+
+    `is_private` alone is not enough: it does not cover 100.64.0.0/10, the shared (CGNAT)
+    block — and Alibaba's instance metadata service answers on 100.100.100.200, so a
+    "public" verdict there is a credential-exfiltration path. `is_global` covers it, and
+    the explicit networks below keep the answer from depending on the stdlib version's
+    private-network tables.
+    """
+    if getattr(ip, "ipv4_mapped", None) is not None:
+        return _is_non_public(ip.ipv4_mapped)
+    if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
+            or ip.is_reserved or ip.is_unspecified or not ip.is_global):
+        return True
+    return any(ip in net for net in _NEVER_PUBLIC if net.version == ip.version)
 
 
 def _resolve_public(url: str) -> tuple[str, int, list[str]]:
@@ -68,8 +96,7 @@ def _resolve_public(url: str) -> tuple[str, int, list[str]]:
         ip = ipaddress.ip_address(sockaddr[0])
         if str(ip) in addresses:
             continue
-        if not _ALLOW_LOCAL and (ip.is_private or ip.is_loopback or ip.is_link_local
-                                 or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+        if not _ALLOW_LOCAL and _is_non_public(ip):
             raise ValueError(
                 f"refusing {url}: {host} resolves to non-public address {ip}")
         addresses.append(str(ip))
