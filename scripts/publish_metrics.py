@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -108,7 +109,13 @@ def main() -> int:
         res = subprocess.run(HOP, shell=True, capture_output=True, text=True)
         text = res.stdout if res.returncode == 0 else ""
         if res.returncode != 0:
-            print("hub read failed; writing an empty report:", res.stderr.strip()[:160])
+            # A failed read is NOT a report. Writing one records installs=0 with a
+            # success exit code, and anything that commits that file publishes a
+            # claim this script never observed (2026-11-11: the 06:42 preview was
+            # exactly that zeroed artefact). Fail closed instead.
+            print("hub read FAILED - no report written:", res.stderr.strip()[:200],
+                  file=sys.stderr)
+            return 2
     elif args.ndjson:
         p = Path(args.ndjson)
         text = p.read_text() if p.exists() else ""
