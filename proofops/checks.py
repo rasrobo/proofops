@@ -11,6 +11,7 @@ and how long it took.
 
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import json
 import socket
@@ -39,16 +40,18 @@ def allow_local_targets() -> bool:
     return _ALLOW_LOCAL
 
 
-def _validate_url(url: str) -> None:
-    """Refuse a URL that would reach a non-public address.
+def _resolve_public(url: str) -> tuple[str, int, list[str]]:
+    """Classify every address a URL names and return them to connect to.
 
     Raises ValueError with the reason. The hostname is resolved and *every* answer is
     classified: a name that resolves to both a public and a private address is refused,
-    because the private answer may be the one used. Checked on the first request and on
-    every redirect hop, so a public URL cannot bounce the fetch onto an internal host.
+    because the private answer may be the one used.
+
+    The addresses returned are the ones the request is actually made to — `_get` pins the
+    connection to this list. Checking a name and then letting urllib resolve it again leaves
+    a DNS-rebinding window in which the second answer is the internal host; connecting only
+    to addresses that were classified is what closes it.
     """
-    if _ALLOW_LOCAL:
-        return
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"refusing non-HTTP(S) URL: {url}")
@@ -60,39 +63,123 @@ def _validate_url(url: str) -> None:
         infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
     except socket.gaierror as e:
         raise ValueError(f"cannot resolve {host}: {e}")
-    seen: set = set()
+    addresses: list[str] = []
     for _family, _type, _proto, _canon, sockaddr in infos:
         ip = ipaddress.ip_address(sockaddr[0])
-        if ip in seen:
+        if str(ip) in addresses:
             continue
-        seen.add(ip)
-        if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
-                or ip.is_reserved or ip.is_unspecified):
+        if not _ALLOW_LOCAL and (ip.is_private or ip.is_loopback or ip.is_link_local
+                                 or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
             raise ValueError(
                 f"refusing {url}: {host} resolves to non-public address {ip}")
-    if not seen:
+        addresses.append(str(ip))
+    if not addresses:
         raise ValueError(f"cannot resolve {host}: no addresses")
+    return host, port, addresses
+
+
+def _pin(req: urllib.request.Request, host: str, addresses: list[str]) -> urllib.request.Request:
+    """Attach the classified addresses to the request the connection classes read.
+
+    Carried on the request rather than in a module global because a redirect hop is a
+    different request with a different address.
+    """
+    setattr(req, "_proofops_host", host)           # name TLS checks the certificate against
+    setattr(req, "_proofops_addresses", addresses)  # the addresses already classified
+    return req
+
+
+def _pinned(req: urllib.request.Request, name: str):
+    """Read what `_pin` attached; a missing pin is a bug, and must not read as 'no host'."""
+    return getattr(req, name)
+
+
+def _open_socket(addresses: list[str], port: int, timeout):
+    """Connect to one of the classified addresses, in order, with no new name lookup.
+
+    All of them were classified, so trying the second after the first refuses cannot reach
+    anything the check did not approve — and it keeps IPv4/IPv6 fallback working.
+    """
+    failure: OSError | None = None
+    for address in addresses:
+        try:
+            return socket.create_connection((address, port), timeout)
+        except OSError as e:  # refused, unreachable, timed out on this address only
+            failure = e
+    raise failure if failure is not None else OSError("no address to connect to")
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    """Plain HTTP to the classified addresses instead of a fresh lookup of the name."""
+
+    def __init__(self, *args, pins: list[str] | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pins = pins or []
+
+    def connect(self):
+        self.sock = _open_socket(self._pins, self.port, self.timeout)
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """TLS to a classified address, certificate still checked against the hostname."""
+
+    def __init__(self, *args, pins: list[str] | None = None,
+                 server_hostname: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pins = pins or []
+        self._server_hostname = server_hostname
+
+    def connect(self):
+        # No proxy tunnel is possible: _get disables proxies, so a tunnel here would be a
+        # hop nothing validated.
+        sock = _open_socket(self._pins, self.port, self.timeout)
+        context = getattr(self, "_context")  # set by HTTPSConnection.__init__
+        self.sock = context.wrap_socket(sock, server_hostname=self._server_hostname)
+
+
+class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(
+            lambda *a, **kw: _PinnedHTTPConnection(
+                *a, pins=_pinned(req, "_proofops_addresses"), **kw), req)
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(
+            lambda *a, **kw: _PinnedHTTPSConnection(
+                *a, pins=_pinned(req, "_proofops_addresses"),
+                server_hostname=_pinned(req, "_proofops_host"),
+                context=getattr(self, "_context"), **kw), req)
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Validate every redirect hop the same way as the first request."""
+    """Validate every redirect hop the same way as the first request, and pin it too."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        _validate_url(newurl)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        host, _port, addresses = _resolve_public(newurl)
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None:
+            _pin(new, host, addresses)
+        return new
 
 
 def _get(url: str) -> tuple[int | None, bytes, dict, float, str]:
     started = time.monotonic()
     try:
-        _validate_url(url)
+        host, _port, addresses = _resolve_public(url)
     except ValueError as e:
         return None, b"", {}, time.monotonic() - started, str(e)
-    req = urllib.request.Request(url, method="GET", headers={"User-Agent": "proofops/0.1"})
+    req = _pin(urllib.request.Request(url, method="GET",
+                                      headers={"User-Agent": "proofops/0.1"}),
+               host, addresses)
     # build_opener keeps the default handlers (including HTTPErrorProcessor, so error
-    # statuses still come back as HTTPError below); our redirect handler replaces only
-    # the default redirect handler.
-    opener = urllib.request.build_opener(_SafeRedirectHandler())
+    # statuses still come back as HTTPError below); ours replace only the connection and
+    # redirect handlers. Environment proxies are disabled on purpose: through a proxy the
+    # address we classified is not the address that is reached, so there is nothing to pin.
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
+        _SafeRedirectHandler(), _PinnedHTTPHandler(), _PinnedHTTPSHandler())
     try:
         with opener.open(req, timeout=TIMEOUT) as r:
             body = r.read(MAX_BODY)

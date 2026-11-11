@@ -9,9 +9,12 @@ cannot repair anything, and cannot widen a plan's allowlist. Its only job is to 
 receipt between an agent and the word "done".
 
 Read-only: the only network verb in the engine is GET, against public addresses unless the
-operator allows local targets. The one side effect available is a command a plan declares
-verbatim in `allowed_commands` **and** the operator approved for this exact command — either
-pre-approved in the plugin's own settings, or an approval prompt showing the exact argv.
+operator allows local targets, and the socket is pinned to the address that was classified
+so a redirect or a rebind cannot move it. The one side effect available is a command a plan
+declares verbatim in `allowed_commands` **and** the operator listed in the plugin's own
+settings — a config file the model cannot write. There is no approval prompt inside a tool
+call, because there is nobody to answer one, and there are no file reads at all until the
+operator sets `allowed_paths`.
 """
 
 from __future__ import annotations
@@ -31,8 +34,8 @@ _ENGINE_NAME = "proofops_engine_runtime"
 _SKILL = _HERE / "skills" / "verify-before-done" / "SKILL.md"
 
 # The PluginContext handed to register(), captured so tool handlers can reach the
-# operator-owned config and the approval prompt. None outside Hermes (tests, standalone
-# import): every use below treats "no context" as "no approval", never as approval.
+# operator-owned config. None outside Hermes (tests, standalone import): every use below
+# treats "no context" as "no settings", i.e. no commands and no file reads.
 _CTX = None
 
 
@@ -44,11 +47,12 @@ def _operator_config() -> dict:
       allowed_commands: commands the operator pre-approves, verbatim strings.
       env_vars: extra environment variable names passed to command checks.
       allow_local_targets: permit HTTP checks against loopback/private addresses.
-      allowed_paths: file roots a plan may read inside; a plan root outside them is
-        refused. None (unset) means "no operator fence; the plan's own roots apply".
+      allowed_paths: file roots a plan may read inside. Empty (the default) means no file
+        reads at all: a plan that declares its own roots is refused, because the plan is
+        written by the model it is verifying.
     """
     cfg = {"allowed_commands": [], "env_vars": [], "allow_local_targets": False,
-           "allowed_paths": None}
+           "allowed_paths": []}
     ctx = _CTX
     if ctx is None:
         return cfg
@@ -63,38 +67,27 @@ def _operator_config() -> dict:
         cfg["allowed_commands"] = []
     if not isinstance(cfg["env_vars"], list):
         cfg["env_vars"] = []
-    if not isinstance(cfg["allowed_paths"], (list, type(None))):
-        cfg["allowed_paths"] = None
+    if not isinstance(cfg["allowed_paths"], list):
+        # Anything that is not a list of roots is "unset", and unset denies.
+        cfg["allowed_paths"] = []
+    cfg["allowed_paths"] = [str(p) for p in cfg["allowed_paths"] if str(p).strip()]
     cfg["allow_local_targets"] = bool(cfg["allow_local_targets"])
     return cfg
 
 
 def _make_approver(cfg: dict):
-    """Per-command operator approval: config allowlist first, then a prompt.
+    """Operator approval for a command check: the operator's own allowlist, nothing else.
 
-    Returns a callable (command, argv) -> bool for the runner's CommandPolicy. The
-    prompt shows the exact argv and fails closed: no answer, or no asker bound (a cron
-    job, a hook, an event-loop handler), means the command does not run.
+    Returns a callable (command, argv) -> bool for the runner's CommandPolicy. An exact
+    string match against ``allowed_commands`` in the operator's config is the only way a
+    command runs. There is deliberately no interactive prompt here: a Hermes tool call has
+    nobody to ask, so "ask the operator" would return nothing and read, in the README, like
+    a gate the platform does not actually provide. Fail closed, and say so.
     """
-    preapproved = set(cfg["allowed_commands"])
+    preapproved = {str(c) for c in cfg["allowed_commands"]}
 
     def approve(command: str, argv: list) -> bool:
-        if command in preapproved:
-            return True
-        ctx = _CTX
-        if ctx is None:
-            return False
-        shown = " ".join(argv) if argv else command
-        try:
-            answer = ctx.ask_choice(
-                f"ProofOps wants to run a command check: {shown}",
-                [{"value": "run", "label": "Run this command", "description": shown},
-                 {"value": "skip", "label": "Do not run",
-                  "description": "the check comes back NOT RUN"}],
-            )
-        except Exception:
-            return False
-        return answer == "run"
+        return command in preapproved
 
     return approve
 
@@ -195,9 +188,11 @@ def _run(args: dict, **_kw) -> str:
     """Run one plan and return the receipt's substance, including what it does not prove.
 
     Command checks run only if the plan declares the command verbatim AND the operator
-    approved this exact command (pre-approved in the plugin's settings, or an approval
-    prompt showing the exact argv). There is no tool argument that enables them — the
-    model cannot opt itself in. Receipts always go under the plugin's data directory.
+    listed that exact command in the plugin's settings. There is no tool argument that
+    enables them — the model cannot opt itself in. File reads need
+    ``plugins.entries.proofops.settings.allowed_paths``: with it unset, a plan that
+    declares file roots is refused rather than allowed to pick its own fence. Receipts
+    always go under the plugin's data directory.
     """
     plan_path, target = args.get("plan"), args.get("target")
     if not plan_path or not target:
@@ -212,8 +207,9 @@ def _run(args: dict, **_kw) -> str:
             approve_command=_make_approver(cfg),
             env_vars=tuple(cfg["env_vars"]),
             allow_local_targets=bool(cfg["allow_local_targets"]),
-            operator_allowed_paths=(None if cfg["allowed_paths"] is None
-                                    else tuple(cfg["allowed_paths"])),
+            # Always a tuple, never None: the plugin is a model-facing surface, so an unset
+            # allowed_paths must mean "no file reads", not "the plan picks its own roots".
+            operator_allowed_paths=tuple(cfg["allowed_paths"]),
             out=str(_receipt_dir()))
     except plan_mod.PlanError as e:
         # A refused plan is not a failed check: say plainly that nothing was tested.
@@ -340,9 +336,12 @@ _TOOLS = (
                         "receipt does NOT prove. Use it instead of asserting an outcome from "
                         "memory. Read-only for HTTP (GET only, public addresses unless the "
                         "operator allows local targets); a command check runs only if the plan "
-                        "declares it verbatim AND the operator approved that exact command — "
-                        "pre-approved in the plugin's settings, or an approval prompt showing "
-                        "the exact command. There is no argument that enables commands."),
+                        "declares it verbatim AND the operator listed that exact command in "
+                        "the plugin's settings — there is no argument that enables commands, "
+                        "and no prompt to answer. File checks run only inside the operator's "
+                        "plugins.entries.proofops.settings.allowed_paths; with that unset a "
+                        "plan that reads files is refused, so ask the operator to configure "
+                        "it rather than writing a plan with its own roots."),
         "parameters": {
             "type": "object",
             "properties": {
@@ -394,7 +393,7 @@ def register(ctx) -> None:
     """Register the three tools and the skill the agent should read before saying 'done'.
 
     The context is captured so tool handlers can read the operator-owned plugin settings
-    and ask the operator to approve a command.
+    (allowed commands, file roots, local-target permission). It cannot prompt anybody.
     """
     global _CTX
     _CTX = ctx

@@ -202,6 +202,39 @@ nothing — it only puts a receipt between the claim and the user.
 The plugin never reads a signing key. A signed receipt reports `needs-key` there by design;
 signing and keyed verification are CLI operations, where the operator holds the secret.
 
+### What the plugin will not do on its own
+
+Everything a run is allowed to touch comes from the **operator's** config, never from the
+plan — and a plan can be written by the very model being verified:
+
+```yaml
+plugins:
+  entries:
+    proofops:
+      settings:
+        allowed_paths: []          # file/database reads: NONE until you list roots
+        allowed_commands: []       # commands a plan may run, verbatim strings
+        env_vars: []               # extra env vars passed to command checks
+        allow_local_targets: false # HTTP against loopback/private addresses
+```
+
+| setting | unset means | why |
+|---|---|---|
+| `allowed_paths` | **no file reads at all** — a plan that declares file roots is refused | the plan is model-written; `csv_stats` over `.env` or `sqlite_query` against `state.db` must not be one plan edit away |
+| `allowed_commands` | no command runs; the check comes back `NOT RUN` | a tool call has nobody to prompt, so a config entry is the only approval that exists |
+| `allow_local_targets` | HTTP checks refuse loopback, RFC 1918 and link-local addresses | the machine may hold credentials |
+
+`allowed_paths` is a fence, not a default: a plan root must sit inside one of your roots,
+and with the list empty the only permitted answer to "may I read this file" is no. If a
+plan is refused, the reply names the setting; there is deliberately no tool argument, and
+no `./plans` pickup, that lets a model open the fence itself.
+
+HTTP checks resolve the host once, refuse any non-public answer, and then connect to the
+address they classified — on the first request and on every redirect hop — so a DNS answer
+that changes between the check and the connect cannot move the request. Environment proxies
+are ignored for the same reason: through a proxy the classified address is not the address
+reached.
+
 Runs without Hermes too:
 
 ```bash
@@ -304,15 +337,19 @@ rejected at load — a green tick is never a claim of correctness.
 Deliverable checks answer what a demo never shows: the export that lost a file, the CSV that
 parses and is short, the images at the wrong size. They are fenced by **`allowed_paths`**: a plan
 names the directories it may read, paths are resolved through symlinks and refused if they escape,
-and every read is bounded (full-file hashing is capped at 256 MB per check).
+and every read is bounded (full-file hashing is capped at 256 MB per check). Inside Hermes the
+operator sets the outer fence (`plugins.entries.proofops.settings.allowed_paths`) and **an unset
+fence permits no file reads at all** — the plan cannot nominate its own, because the model writes
+the plan.
 
 ### Side effects need two keys
 
 `command_exit` is the only place ProofOps can cause a side effect, so two independent gates must
-open: the plan lists the command **verbatim** in `allowed_commands`, *and* the operator passes
-`--allow-commands`. Neither alone is enough — a plan copied from elsewhere executes nothing, and a
-careless flag cannot run what the plan never declared. There is no shell; argv is split with
-`shlex`, so `&&`, pipes and redirection are unavailable to a plan.
+open: the plan lists the command **verbatim** in `allowed_commands`, *and* the operator allows it —
+`--allow-commands` on the CLI, `plugins.entries.proofops.settings.allowed_commands` inside Hermes.
+Neither alone is enough — a plan copied from elsewhere executes nothing, and a careless flag cannot
+run what the plan never declared. There is no shell; argv is split with `shlex`, so `&&`, pipes and
+redirection are unavailable to a plan.
 
 Identical commands run once per run and are cached, with `reused_from_cache: true` recorded rather
 than hidden — two checks about a 90-second replay cost 90 seconds, not 180.

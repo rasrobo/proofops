@@ -8,6 +8,10 @@ Rules that are enforced when a plan loads, so you cannot get them wrong silently
 * every check states `proves` — the sentence you would say out loud if it passed
 * every plan states `does_not_prove` — the sentence that stops the receipt being overquoted
 * file checks live inside `allowed_paths`; HTTP checks live inside `allowed_origins`
+* inside Hermes the operator must also configure `plugins.entries.proofops.settings.allowed_paths`.
+  While it is unset, a plan that declares file roots is refused — the plan is written by the model
+  it verifies, so it cannot nominate its own read roots. (The CLI is its own operator: there the
+  plan's roots apply.)
 * a `command_exit` check must list its argv **verbatim** in `allowed_commands`
 * an unknown check `type` is refused, not skipped
 

@@ -1,9 +1,10 @@
 """Tests for the four review fixes on PR #149625 (teknium, 2026-11-10).
 
 1. The model no longer controls the command gates: `allow_commands` is gone from the
-   tool schema, and a command check runs only after operator approval — pre-approved in
-   the plugin's own settings, or an approval prompt showing the exact argv. The working
-   directory's ./plans is never the default.
+   tool schema, and a command check runs only if the plan lists it verbatim AND the
+   operator listed that exact command in the plugin's own settings (there is no approval
+   prompt inside a tool call — a round-two finding: `ctx.ask_choice` has nobody to ask).
+   The working directory's ./plans is never the default.
 2. A command check's child gets a minimal environment (PATH, HOME, LANG, plus only the
    variable names the operator lists).
 3. HTTP checks refuse loopback/private/link-local addresses by default, on the first
@@ -287,21 +288,20 @@ class TestPluginSurface(unittest.TestCase):
         self.assertEqual(out["summary"]["verdict"], "PASS", out)
         self.assertTrue(out["summary"]["claimable"])
 
-    def test_an_approval_prompt_yes_runs_the_command(self):
+    def test_an_unlisted_command_is_not_run_even_if_something_answers_yes(self):
+        """Round two: there is no approval prompt to answer, so a `yes` cannot exist."""
         PLUGIN._CTX = _FakeCtx(choice="run")
         with tempfile.TemporaryDirectory() as d:
             out = json.loads(PLUGIN._run(
                 {"plan": str(_command_plan(d)), "target": "local"}))
-        self.assertEqual(out["summary"]["verdict"], "PASS", out)
-        question, _choices = PLUGIN._CTX.asked[0]
-        self.assertIn("echo hi", question, "the prompt must show the exact command")
+        self.assertEqual(out["summary"]["verdict"], "INCOMPLETE", out)
+        self.assertEqual(PLUGIN._CTX.asked, [],
+                         "the plugin must not pretend to ask an operator it cannot reach")
 
-    def test_an_approval_prompt_no_does_not_run(self):
-        PLUGIN._CTX = _FakeCtx(choice="skip")
-        with tempfile.TemporaryDirectory() as d:
-            out = json.loads(PLUGIN._run(
-                {"plan": str(_command_plan(d)), "target": "local"}))
-        self.assertEqual(out["summary"]["verdict"], "INCOMPLETE")
+    def test_the_plugin_never_calls_ask_choice(self):
+        source = (REPO / "__init__.py").read_text()
+        self.assertNotIn("ask_choice", source,
+                         "a tool call has nobody to ask; the config allowlist is the gate")
 
     def test_receipts_go_under_the_plugin_data_dir_not_where_the_model_says(self):
         with tempfile.TemporaryDirectory() as d:
@@ -314,7 +314,7 @@ class TestPluginSurface(unittest.TestCase):
             sys.modules["plugins.plugin_storage"] = storage
             try:
                 self.assertEqual(PLUGIN._receipt_dir(), data / "proofops" / "receipts")
-                PLUGIN._CTX = _FakeCtx()
+                PLUGIN._CTX = _FakeCtx(settings={"allowed_paths": [d]})
                 plan = pathlib.Path(d) / "plan.json"
                 plan.write_text(json.dumps({
                     "name": "file plan", "target_kind": "local",

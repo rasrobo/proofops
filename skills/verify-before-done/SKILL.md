@@ -25,9 +25,15 @@ reads it.
    to pass.
 2. **Run it.** `proofops_run(plan="plans/<name>.json", target="https://…")`.
    - Command checks come back `NOT RUN` unless the plan lists the command verbatim
-     **and** the operator approved that exact command — pre-approved in the plugin's
-     settings, or by answering the approval prompt that shows the exact command.
-     That is deliberate: a refusal is not a failure and not a pass.
+     **and** the operator listed that exact command in
+     `plugins.entries.proofops.settings.allowed_commands`. A tool call has nobody to
+     prompt, so there is no "approve this command" dialogue to accept — do not tell the
+     user to wait for one, and do not claim you approved it yourself.
+   - File and database checks come back as a refusal (nothing runs) until the operator
+     sets `plugins.entries.proofops.settings.allowed_paths`. That is deliberate: a
+     refusal is not a failure and not a pass.
+   - If a gate is closed, say which setting the operator must add. Do not write a plan
+     whose roots work around it.
 3. **Read the verdict.**
    - `PASS` — every check passed. Say exactly which checks, by id.
    - `FAIL` — quote the failing check's `observed` value. Repair, then re-run the **same

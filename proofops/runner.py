@@ -20,16 +20,27 @@ from . import receipt as receipt_mod
 
 
 def _constrain_roots(plan_roots, operator_roots) -> tuple[str, ...]:
-    """A model-written plan may not widen the file roots the operator configured.
+    """A model-written plan may not widen — or pick — the file roots it reads.
 
     Every plan root must sit inside an operator root (resolved, so symlinks cannot smuggle
-    a root out). An empty operator list allows no file reads at all. The plan's own roots
-    are returned unchanged — they are already inside the operator's, so they stay the
-    tighter fence.
+    a root out). No operator roots at all means no file reads: an unset
+    `allowed_paths` is a denial, not permission for the plan to choose its own fence. The
+    plan is model-written, so a plan that declares ``~/.hermes`` as a root would otherwise
+    read the operator's own credentials on a default install. The plan's own roots are
+    returned unchanged — they are already inside the operator's, so they stay the tighter
+    fence.
     """
     import os
 
     op = [os.path.realpath(r) for r in operator_roots]
+    if not op:
+        if plan_roots:
+            raise plan_mod.PlanError(
+                "this plan reads files, but no operator file roots are configured: file "
+                "reads are refused by default. Set "
+                "plugins.entries.proofops.settings.allowed_paths to the directories a plan "
+                "may read, or remove the file checks from the plan.")
+        return ()
     for root in plan_roots:
         real = os.path.realpath(root)
         if not any(real == o or real.startswith(o + os.sep) for o in op):
@@ -54,10 +65,12 @@ def execute(
     """Run every check in the plan. Returns (receipt, path the receipt was written to).
 
     approve_command(command, argv) -> bool is the per-command operator approval used by
-    the plugin (config allowlist, then an approval prompt showing the exact argv). The
+    the plugin: an entry in the operator's own config, which the model cannot write. The
     CLI passes None: there --allow-commands already is the operator's approval.
     operator_allowed_paths, when set, is the operator-owned fence for file reads: every
-    plan root must sit inside it.
+    plan root must sit inside it. An empty tuple permits no file reads at all — the plugin
+    always passes one, so on a default install a plan cannot choose its own read roots.
+    None is reserved for the CLI, where the person running the command is the operator.
     """
     plan = plan_mod.load(plan_path)
     if any(c.get("type", "").startswith("http_") for c in plan["checks"]):
