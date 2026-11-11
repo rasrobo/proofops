@@ -1,0 +1,822 @@
+{
+  "generated_at": "2026-11-11T14:56:51+00:00",
+  "eval_script_sha256": "72bdbdba17731039",
+  "proofops_version": "0.5.0",
+  "python": "3.12.3",
+  "cases": 20,
+  "metrics": {
+    "tp": 10,
+    "fp": 0,
+    "fn": 0,
+    "tn": 10,
+    "other": 0,
+    "matches": 20,
+    "total": 20,
+    "precision": 1.0,
+    "recall": 1.0,
+    "accuracy": 1.0
+  },
+  "results": [
+    {
+      "id": "E01",
+      "claim": "the service is up and reports status ok",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "http_status",
+        "http_json_field"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "status-200": {
+          "passed": true,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/health",
+            "expected_status": 200,
+            "observed_status": 200,
+            "elapsed_ms": 29,
+            "error": ""
+          }
+        },
+        "status-ok": {
+          "passed": true,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/health",
+            "field": "status",
+            "mode": "equals",
+            "expected": "ok",
+            "observed": "ok",
+            "body_parsed_as_json": true,
+            "http_status": 200,
+            "elapsed_ms": 27,
+            "error": ""
+          }
+        }
+      },
+      "elapsed_ms": 61,
+      "proves": "a 200 plus a healthy status field together mean 'up', not just 'reachable'"
+    },
+    {
+      "id": "E02",
+      "claim": "the readiness page says all systems nominal",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "http_body_contains"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "ready-text": {
+          "passed": true,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/ready",
+            "contains": "all systems nominal",
+            "http_status": 200,
+            "body_bytes": 52,
+            "observed_snippet": "service ready: all systems nominal \u2014 version 2.4.1",
+            "elapsed_ms": 27,
+            "error": ""
+          }
+        }
+      },
+      "elapsed_ms": 28,
+      "proves": "the body carries the expected readiness string"
+    },
+    {
+      "id": "E03",
+      "claim": "the service reports version 1.2.3",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "http_header"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "version-header": {
+          "passed": true,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/version",
+            "header": "X-App-Version",
+            "expected_contains": "1.2.3",
+            "observed": "1.2.3",
+            "http_status": 200,
+            "elapsed_ms": 27,
+            "error": ""
+          }
+        }
+      },
+      "elapsed_ms": 28,
+      "proves": "the response header carries the expected version"
+    },
+    {
+      "id": "E04",
+      "claim": "the release artifact exists with the expected SHA-256",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "file_exists",
+        "file_sha256"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "exists": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E04/release.bin",
+            "bytes": 1024,
+            "mtime": 1794409010,
+            "exists": true,
+            "min_bytes": 0,
+            "observed_bytes": 1024
+          }
+        },
+        "hash": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E04/release.bin",
+            "bytes": 1024,
+            "mtime": 1794409010,
+            "expected_sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9",
+            "observed_sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9"
+          }
+        }
+      },
+      "elapsed_ms": 6,
+      "proves": "existence plus exact bytes pins the artifact, not just its name"
+    },
+    {
+      "id": "E05",
+      "claim": "the roster CSV has 6 rows, the expected header and null counts",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "csv_stats"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "roster": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E05/roster.csv",
+            "observed": {
+              "rows": 6,
+              "columns": [
+                "id",
+                "name",
+                "age",
+                "city"
+              ],
+              "nulls": {
+                "id": 0,
+                "name": 0,
+                "age": 2,
+                "city": 2
+              },
+              "blank_rows": 0
+            },
+            "mismatches": []
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "row count, header and per-column nulls match the source"
+    },
+    {
+      "id": "E06",
+      "claim": "the export directory holds 4 files with the expected listing",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "dir_manifest"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "manifest": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E06/export",
+            "expected": {
+              "files": 4,
+              "sha256": "e7a9197f3b693d1f3fceada570910875f0c1326eb1a6abf3f5c400f2732e0251"
+            },
+            "observed": {
+              "files": 4,
+              "bytes": 67,
+              "sha256": "e7a9197f3b693d1f3fceada570910875f0c1326eb1a6abf3f5c400f2732e0251"
+            },
+            "mismatches": [],
+            "sample": [
+              {
+                "name": "a.txt",
+                "bytes": 17,
+                "sha256": "aeb6448f8e28244ee3da7d57bd9a66ef836c63cc81c54d398d829460cc801e58"
+              },
+              {
+                "name": "b.txt",
+                "bytes": 16,
+                "sha256": "5391ca8207c14b2b9febb183f8f1b7b5e5d27739487b74fd3813da7c5a522ef9"
+              },
+              {
+                "name": "c.txt",
+                "bytes": 17,
+                "sha256": "18a038da00ff6cbb4f1b5d83beeda78e1343ec45584fd9717b2693e01eeb1f82"
+              },
+              {
+                "name": "d.txt",
+                "bytes": 17,
+                "sha256": "a0b73035c39c14c0d7fea3f7f5fa4377ce0765224561605500dc08db4ba855e7"
+              }
+            ]
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "file count plus the listing digest pins the whole export"
+    },
+    {
+      "id": "E07",
+      "claim": "the thumbnail is 320x240",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "image_size"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "dims": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E07/thumb.png",
+            "format": "png",
+            "expected": "320x240",
+            "observed": "320x240"
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "the image dimensions are the expected ones"
+    },
+    {
+      "id": "E08",
+      "claim": "the report is 3 A4 pages and carries its landmark heading",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "pdf_pages",
+        "pdf_page_size",
+        "pdf_text_contains"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "pages": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E08/report.pdf",
+            "bytes": 1138,
+            "mtime": 1794409010,
+            "expected_pages": 3,
+            "observed_pages": 3,
+            "method": "page tree /Count"
+          }
+        },
+        "page-size": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E08/report.pdf",
+            "bytes": 1138,
+            "mtime": 1794409010,
+            "expected": "595.0x842.0pt",
+            "observed": "595.0x842.0pt"
+          }
+        },
+        "landmark": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E08/report.pdf",
+            "bytes": 1138,
+            "mtime": 1794409010,
+            "decoded_streams": 0,
+            "contains": "Quarterly Report 2026",
+            "characters_extracted": 57,
+            "snippet": "Quarterly Report 2026 Revenue by region Risks and outlook"
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "page count, page size and the landmark string together describe the document"
+    },
+    {
+      "id": "E09",
+      "claim": "message 143 is recorded as sent",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "sqlite_query"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "message-143": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E09/dc.db",
+            "query": "select count(*) from messages where id = ? and sent = 1",
+            "params": [
+              143
+            ],
+            "mode": "read-only (sqlite mode=ro, single SELECT/WITH)",
+            "columns": [
+              "count(*)"
+            ],
+            "rows_returned": 1,
+            "truncated": false,
+            "first_row": [
+              "1"
+            ],
+            "elapsed_ms": 0,
+            "mismatches": []
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "the system of record holds the claimed row with sent=1"
+    },
+    {
+      "id": "E10",
+      "claim": "the smoke-test command exits 0",
+      "expected": "PASS",
+      "actual": "PASS",
+      "match": true,
+      "checks": [
+        "command_exit"
+      ],
+      "failed_checks": [],
+      "not_run_checks": [],
+      "check_evidence": {
+        "smoke": {
+          "passed": true,
+          "evidence": {
+            "command": "true",
+            "argv": [
+              "true"
+            ],
+            "expected_exit": 0,
+            "observed_exit": 0,
+            "timed_out": false,
+            "elapsed_ms": 2,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "env_keys": [
+              "HOME",
+              "LANG",
+              "PATH"
+            ]
+          }
+        }
+      },
+      "elapsed_ms": 2,
+      "proves": "a declared command, run with operator approval, exits cleanly"
+    },
+    {
+      "id": "E11",
+      "claim": "the service is up and reports status ok (it reports degraded)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "http_status",
+        "http_json_field"
+      ],
+      "failed_checks": [
+        "status-ok"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "status-200": {
+          "passed": true,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/health-degraded",
+            "expected_status": 200,
+            "observed_status": 200,
+            "elapsed_ms": 27,
+            "error": ""
+          }
+        },
+        "status-ok": {
+          "passed": false,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/health-degraded",
+            "field": "status",
+            "mode": "equals",
+            "expected": "ok",
+            "observed": "degraded",
+            "body_parsed_as_json": true,
+            "http_status": 200,
+            "elapsed_ms": 26,
+            "error": ""
+          }
+        }
+      },
+      "elapsed_ms": 54,
+      "proves": "a 200 with a degraded status field must not pass as healthy"
+    },
+    {
+      "id": "E12",
+      "claim": "the endpoint answers 200 (it answers 404)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "http_status"
+      ],
+      "failed_checks": [
+        "status-200"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "status-200": {
+          "passed": false,
+          "evidence": {
+            "url": "http://127.0.0.1:44553/missing",
+            "expected_status": 200,
+            "observed_status": 404,
+            "elapsed_ms": 33,
+            "error": ""
+          }
+        }
+      },
+      "elapsed_ms": 34,
+      "proves": "a missing endpoint must not pass a 200 assertion"
+    },
+    {
+      "id": "E13",
+      "claim": "the release artifact exists with the expected SHA-256 (bytes differ)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "file_sha256"
+      ],
+      "failed_checks": [
+        "hash"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "hash": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E13/release.bin",
+            "bytes": 1024,
+            "mtime": 1794409010,
+            "expected_sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9",
+            "observed_sha256": "ca4e6a6a49abeb95b8816822255a2153990a702c2a7a4967f57a46fdc67df019"
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "a changed artifact must fail its hash assertion even though it exists"
+    },
+    {
+      "id": "E14",
+      "claim": "the roster CSV has 6 rows (it has 5)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "csv_stats"
+      ],
+      "failed_checks": [
+        "roster"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "roster": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E14/roster.csv",
+            "observed": {
+              "rows": 5,
+              "columns": [
+                "id",
+                "name",
+                "age",
+                "city"
+              ],
+              "nulls": {
+                "id": 0,
+                "name": 0,
+                "age": 2,
+                "city": 2
+              },
+              "blank_rows": 0
+            },
+            "mismatches": [
+              {
+                "field": "rows",
+                "expected": 6,
+                "observed": 5
+              }
+            ]
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "a CSV short by one row must fail its row-count assertion"
+    },
+    {
+      "id": "E15",
+      "claim": "the export directory holds 4 files (one is missing)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "dir_manifest"
+      ],
+      "failed_checks": [
+        "manifest"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "manifest": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E15/export",
+            "expected": {
+              "files": 3,
+              "sha256": "0982fa807dac5e9932fa4a88ad057453cb3a7d6996d6075c3f2495389be23762"
+            },
+            "observed": {
+              "files": 3,
+              "bytes": 50,
+              "sha256": "0982fa807dac5e9932fa4a88ad057453cb3a7d6996d6075c3f2495389be23762"
+            },
+            "mismatches": [
+              {
+                "field": "files",
+                "expected": 4,
+                "observed": 3
+              },
+              {
+                "field": "sha256",
+                "expected": "e7a9197f3b693d1f3fceada570910875f0c1326eb1a6abf3f5c400f2732e0251",
+                "observed": "0982fa807dac5e9932fa4a88ad057453cb3a7d6996d6075c3f2495389be23762"
+              }
+            ],
+            "sample": [
+              {
+                "name": "a.txt",
+                "bytes": 17,
+                "sha256": "aeb6448f8e28244ee3da7d57bd9a66ef836c63cc81c54d398d829460cc801e58"
+              },
+              {
+                "name": "b.txt",
+                "bytes": 16,
+                "sha256": "5391ca8207c14b2b9febb183f8f1b7b5e5d27739487b74fd3813da7c5a522ef9"
+              },
+              {
+                "name": "c.txt",
+                "bytes": 17,
+                "sha256": "18a038da00ff6cbb4f1b5d83beeda78e1343ec45584fd9717b2693e01eeb1f82"
+              }
+            ]
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "a manifest missing a file must fail on count and on the listing digest"
+    },
+    {
+      "id": "E16",
+      "claim": "the thumbnail is 320x240 (it is 640x480)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "image_size"
+      ],
+      "failed_checks": [
+        "dims"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "dims": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E16/thumb.png",
+            "format": "png",
+            "expected": "320x240",
+            "observed": "640x480"
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "an image with the wrong dimensions must fail its size assertion"
+    },
+    {
+      "id": "E17",
+      "claim": "the report is 3 A4 pages (it has 2)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "pdf_pages",
+        "pdf_page_size",
+        "pdf_text_contains"
+      ],
+      "failed_checks": [
+        "pages"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "pages": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E17/report.pdf",
+            "bytes": 866,
+            "mtime": 1794409010,
+            "expected_pages": 3,
+            "observed_pages": 2,
+            "method": "page tree /Count"
+          }
+        },
+        "page-size": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E17/report.pdf",
+            "bytes": 866,
+            "mtime": 1794409010,
+            "expected": "595.0x842.0pt",
+            "observed": "595.0x842.0pt"
+          }
+        },
+        "landmark": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E17/report.pdf",
+            "bytes": 866,
+            "mtime": 1794409010,
+            "decoded_streams": 0,
+            "contains": "Quarterly Report 2026",
+            "characters_extracted": 39,
+            "snippet": "Quarterly Report 2026 Revenue by region"
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "a report with fewer pages must fail its page-count assertion"
+    },
+    {
+      "id": "E18",
+      "claim": "the report carries its landmark heading (it does not)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "pdf_pages",
+        "pdf_page_size",
+        "pdf_text_contains"
+      ],
+      "failed_checks": [
+        "landmark"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "pages": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E18/report.pdf",
+            "bytes": 1134,
+            "mtime": 1794409010,
+            "expected_pages": 3,
+            "observed_pages": 3,
+            "method": "page tree /Count"
+          }
+        },
+        "page-size": {
+          "passed": true,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E18/report.pdf",
+            "bytes": 1134,
+            "mtime": 1794409010,
+            "expected": "595.0x842.0pt",
+            "observed": "595.0x842.0pt"
+          }
+        },
+        "landmark": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E18/report.pdf",
+            "bytes": 1134,
+            "mtime": 1794409010,
+            "decoded_streams": 0,
+            "contains": "Quarterly Report 2026",
+            "characters_extracted": 53,
+            "snippet": "Quarterly Summary Revenue by region Risks and outlook"
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "a report missing its landmark text must fail its text assertion"
+    },
+    {
+      "id": "E19",
+      "claim": "message 143 is recorded as sent (no such row)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "sqlite_query"
+      ],
+      "failed_checks": [
+        "message-143"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "message-143": {
+          "passed": false,
+          "evidence": {
+            "path": "/tmp/proofops-eval-v3xk_tgk/E19/dc.db",
+            "query": "select count(*) from messages where id = ? and sent = 1",
+            "params": [
+              143
+            ],
+            "mode": "read-only (sqlite mode=ro, single SELECT/WITH)",
+            "columns": [
+              "count(*)"
+            ],
+            "rows_returned": 1,
+            "truncated": false,
+            "first_row": [
+              "0"
+            ],
+            "elapsed_ms": 0,
+            "mismatches": [
+              {
+                "field": "first_value",
+                "expected": 1,
+                "observed": 0
+              }
+            ]
+          }
+        }
+      },
+      "elapsed_ms": 1,
+      "proves": "a message id with no row in the system of record must not pass"
+    },
+    {
+      "id": "E20",
+      "claim": "the smoke-test command exits 0 (it exits 1)",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "match": true,
+      "checks": [
+        "command_exit"
+      ],
+      "failed_checks": [
+        "smoke"
+      ],
+      "not_run_checks": [],
+      "check_evidence": {
+        "smoke": {
+          "passed": false,
+          "evidence": {
+            "command": "false",
+            "argv": [
+              "false"
+            ],
+            "expected_exit": 0,
+            "observed_exit": 1,
+            "timed_out": false,
+            "elapsed_ms": 3,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "env_keys": [
+              "HOME",
+              "LANG",
+              "PATH"
+            ]
+          }
+        }
+      },
+      "elapsed_ms": 3,
+      "proves": "a declared command that exits non-zero must fail its exit assertion"
+    }
+  ]
+}
