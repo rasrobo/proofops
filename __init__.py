@@ -8,9 +8,10 @@ The engine is the same code `python3 -m proofops` runs; this plugin adds no chec
 cannot repair anything, and cannot widen a plan's allowlist. Its only job is to put a
 receipt between an agent and the word "done".
 
-Read-only: the only network verb in the engine is GET. The one side effect available is a
-command a plan declares verbatim in `allowed_commands` **and** the operator opts into per
-call with allow_commands=true — the same two-gate fence the CLI enforces.
+Read-only: the only network verb in the engine is GET, against public addresses unless the
+operator allows local targets. The one side effect available is a command a plan declares
+verbatim in `allowed_commands` **and** the operator approved for this exact command — either
+pre-approved in the plugin's own settings, or an approval prompt showing the exact argv.
 """
 
 from __future__ import annotations
@@ -28,6 +29,74 @@ _HERE = pathlib.Path(__file__).resolve().parent
 # "proofops" itself).
 _ENGINE_NAME = "proofops_engine_runtime"
 _SKILL = _HERE / "skills" / "verify-before-done" / "SKILL.md"
+
+# The PluginContext handed to register(), captured so tool handlers can reach the
+# operator-owned config and the approval prompt. None outside Hermes (tests, standalone
+# import): every use below treats "no context" as "no approval", never as approval.
+_CTX = None
+
+
+def _operator_config() -> dict:
+    """Operator-owned plugin settings, with safe defaults.
+
+    Read from ``plugins.entries.proofops.settings`` in the operator's config.yaml — a
+    place the model cannot write. Keys:
+      allowed_commands: commands the operator pre-approves, verbatim strings.
+      env_vars: extra environment variable names passed to command checks.
+      allow_local_targets: permit HTTP checks against loopback/private addresses.
+      allowed_paths: file roots a plan may read inside; a plan root outside them is
+        refused. None (unset) means "no operator fence; the plan's own roots apply".
+    """
+    cfg = {"allowed_commands": [], "env_vars": [], "allow_local_targets": False,
+           "allowed_paths": None}
+    ctx = _CTX
+    if ctx is None:
+        return cfg
+    try:
+        for key in cfg:
+            value = ctx.get_config(key, cfg[key])
+            if value is not None:
+                cfg[key] = value
+    except Exception:
+        return cfg
+    if not isinstance(cfg["allowed_commands"], list):
+        cfg["allowed_commands"] = []
+    if not isinstance(cfg["env_vars"], list):
+        cfg["env_vars"] = []
+    if not isinstance(cfg["allowed_paths"], (list, type(None))):
+        cfg["allowed_paths"] = None
+    cfg["allow_local_targets"] = bool(cfg["allow_local_targets"])
+    return cfg
+
+
+def _make_approver(cfg: dict):
+    """Per-command operator approval: config allowlist first, then a prompt.
+
+    Returns a callable (command, argv) -> bool for the runner's CommandPolicy. The
+    prompt shows the exact argv and fails closed: no answer, or no asker bound (a cron
+    job, a hook, an event-loop handler), means the command does not run.
+    """
+    preapproved = set(cfg["allowed_commands"])
+
+    def approve(command: str, argv: list) -> bool:
+        if command in preapproved:
+            return True
+        ctx = _CTX
+        if ctx is None:
+            return False
+        shown = " ".join(argv) if argv else command
+        try:
+            answer = ctx.ask_choice(
+                f"ProofOps wants to run a command check: {shown}",
+                [{"value": "run", "label": "Run this command", "description": shown},
+                 {"value": "skip", "label": "Do not run",
+                  "description": "the check comes back NOT RUN"}],
+            )
+        except Exception:
+            return False
+        return answer == "run"
+
+    return approve
 
 
 def _engine():
@@ -48,14 +117,14 @@ def _sub(name: str):
 
 
 def _default_plans_dir() -> pathlib.Path:
-    """Where to look for plans when the caller names none.
+    """Where to look for plans when the caller names none: the shipped plans.
 
-    A catalogue install has no ``./plans`` — the user's working directory is whatever they
-    were doing. Defaulting to the plugin's own directory means the first call shows the
-    shipped plans instead of an error, and a plan can be named rather than pathed.
+    Deliberately NOT the working directory's ``./plans``: a catalogue install has no
+    `./plans`, and a plan dropped into the working directory must never become the
+    default a model call picks up. An explicit path or plans_dir still works — the
+    operator chose it.
     """
-    cwd_plans = pathlib.Path("plans").expanduser()
-    return cwd_plans if cwd_plans.is_dir() else _HERE / "plans"
+    return _HERE / "plans"
 
 
 def _resolve_plan(value) -> pathlib.Path:
@@ -71,8 +140,19 @@ def _resolve_plan(value) -> pathlib.Path:
 
 
 def _receipt_dir() -> pathlib.Path:
-    home = pathlib.Path(os.environ.get("HERMES_HOME") or "~/.hermes").expanduser()
-    d = home / "proofops" / "receipts"
+    """Receipts live under the plugin's own data directory, never where the model says.
+
+    plugins.plugin_storage.plugin_data_dir survives updates and follows the active
+    profile. Outside Hermes (tests, standalone import) fall back to the fixed
+    $HERMES_HOME/proofops/receipts location — still operator-controlled, never
+    model-controlled.
+    """
+    try:
+        from plugins.plugin_storage import plugin_data_dir
+        d = pathlib.Path(plugin_data_dir("proofops")) / "receipts"
+    except Exception:
+        home = pathlib.Path(os.environ.get("HERMES_HOME") or "~/.hermes").expanduser()
+        d = home / "proofops" / "receipts"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -102,27 +182,39 @@ def _plans(args: dict, **_kw) -> str:
             "revision": plan["_revision"],
             "target_kind": plan["target_kind"],
             "checks": len(plan["checks"]),
-            # Say up front which plans need the operator to opt into running commands, so
-            # nobody discovers NOT RUN by surprise after the fact.
-            "run_mode": "needs_allow_commands" if needs_commands else "read_only",
-            "requires": ["allow_commands"] if needs_commands else [],
+            # Say up front which plans need the operator to approve a command, so nobody
+            # discovers NOT RUN by surprise after the fact.
+            "run_mode": "needs_operator_approval" if needs_commands else "read_only",
+            "requires": ["operator_approval"] if needs_commands else [],
             "does_not_prove": plan["does_not_prove"],
         })
     return json.dumps({"plans_dir": str(d), "plans": out}, indent=2)
 
 
 def _run(args: dict, **_kw) -> str:
-    """Run one plan and return the receipt's substance, including what it does not prove."""
+    """Run one plan and return the receipt's substance, including what it does not prove.
+
+    Command checks run only if the plan declares the command verbatim AND the operator
+    approved this exact command (pre-approved in the plugin's settings, or an approval
+    prompt showing the exact argv). There is no tool argument that enables them — the
+    model cannot opt itself in. Receipts always go under the plugin's data directory.
+    """
     plan_path, target = args.get("plan"), args.get("target")
     if not plan_path or not target:
         return json.dumps({"error": "both 'plan' and 'target' are required"})
-    out = pathlib.Path(args.get("out") or _receipt_dir())
+    cfg = _operator_config()
     runner = _sub("runner")
     plan_mod = _sub("plan")
     try:
         rec, path = runner.execute(
             str(_resolve_plan(plan_path)), str(target),
-            allow_commands=bool(args.get("allow_commands")), out=str(out))
+            allow_commands=True,
+            approve_command=_make_approver(cfg),
+            env_vars=tuple(cfg["env_vars"]),
+            allow_local_targets=bool(cfg["allow_local_targets"]),
+            operator_allowed_paths=(None if cfg["allowed_paths"] is None
+                                    else tuple(cfg["allowed_paths"])),
+            out=str(_receipt_dir()))
     except plan_mod.PlanError as e:
         # A refused plan is not a failed check: say plainly that nothing was tested.
         return json.dumps({"refused": str(e), "ran": False,
@@ -246,8 +338,11 @@ _TOOLS = (
         "description": ("Run one declared verification plan against a target and get a "
                         "receipt: each check's actual result, what it proves, and what the "
                         "receipt does NOT prove. Use it instead of asserting an outcome from "
-                        "memory. Read-only for HTTP (GET only); a command check requires the "
-                        "plan to declare it verbatim AND allow_commands=true."),
+                        "memory. Read-only for HTTP (GET only, public addresses unless the "
+                        "operator allows local targets); a command check runs only if the plan "
+                        "declares it verbatim AND the operator approved that exact command — "
+                        "pre-approved in the plugin's settings, or an approval prompt showing "
+                        "the exact command. There is no argument that enables commands."),
         "parameters": {
             "type": "object",
             "properties": {
@@ -255,12 +350,6 @@ _TOOLS = (
                 "target": {"type": "string",
                            "description": ("Origin (https://…, http://127.0.0.1:PORT) or "
                                            "'local' for command-only plans.")},
-                "allow_commands": {"type": "boolean",
-                                   "description": ("Permit command checks the plan declares in "
-                                                   "allowed_commands. Default false: they come "
-                                                   "back NOT RUN, never FAIL.")},
-                "out": {"type": "string",
-                        "description": "Receipt directory (default: $HERMES_HOME/proofops/receipts)."},
             },
             "required": ["plan", "target"],
             "additionalProperties": False,
@@ -302,7 +391,13 @@ _TOOLS = (
 
 
 def register(ctx) -> None:
-    """Register the three tools and the skill the agent should read before saying 'done'."""
+    """Register the three tools and the skill the agent should read before saying 'done'.
+
+    The context is captured so tool handlers can read the operator-owned plugin settings
+    and ask the operator to approve a command.
+    """
+    global _CTX
+    _CTX = ctx
     for name, schema, handler in _TOOLS:
         ctx.register_tool(name=name, toolset="proofops", schema=schema, handler=handler,
                           emoji="🔎")

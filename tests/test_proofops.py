@@ -164,6 +164,18 @@ class TestRevision(unittest.TestCase):
 
 # ---------------------------------------------------------------- HTTP checks
 class TestHttpChecks(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # These tests call the check functions directly against a loopback fixture.
+        # The tests are the operator here, so local targets are explicitly allowed;
+        # the default (refuse) is covered by the SSRF tests in test_review_fixes.py.
+        cls._prev_allow_local = checks_mod.allow_local_targets()
+        checks_mod.set_network_policy(True)
+
+    @classmethod
+    def tearDownClass(cls):
+        checks_mod.set_network_policy(cls._prev_allow_local)
+
     def test_status_matches(self):
         with _Server() as s:
             ok, ev = checks_mod.http_status({"path": "/health", "expect": 200}, s.base)

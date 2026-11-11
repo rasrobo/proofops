@@ -24,8 +24,10 @@ reads it.
    outcome you are about to claim, use it. Do not write a fresh plan whose only purpose is
    to pass.
 2. **Run it.** `proofops_run(plan="plans/<name>.json", target="https://…")`.
-   - Command checks come back `NOT RUN` unless `allow_commands=true` **and** the plan lists
-     the command verbatim. That is deliberate: a refusal is not a failure and not a pass.
+   - Command checks come back `NOT RUN` unless the plan lists the command verbatim
+     **and** the operator approved that exact command — pre-approved in the plugin's
+     settings, or by answering the approval prompt that shows the exact command.
+     That is deliberate: a refusal is not a failure and not a pass.
 3. **Read the verdict.**
    - `PASS` — every check passed. Say exactly which checks, by id.
    - `FAIL` — quote the failing check's `observed` value. Repair, then re-run the **same

@@ -82,7 +82,10 @@ def run(stream=None) -> int:
         say(f"fixture: {target}/health.json answers 200 and reports {{\"status\": \"degraded\"}}")
         say("")
         try:
-            rec, path = runner.execute(str(plan_path), target, out=str(root / "receipts"))
+            # The demo fixture is the operator's own loopback server, started above:
+            # local targets are allowed here, and only here, by an explicit opt-in.
+            rec, path = runner.execute(str(plan_path), target, out=str(root / "receipts"),
+                                       allow_local_targets=True)
         finally:
             httpd.shutdown()
             httpd.server_close()

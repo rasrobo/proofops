@@ -42,7 +42,7 @@ echo
 echo "──────────────────────────────────────────────────────────────"
 echo " ACT 1 — the system says it is fine"
 echo "──────────────────────────────────────────────────────────────"
-(cd "$ROOT" && python3 -m proofops run plans/claw-way-deployment.local.json --target "http://127.0.0.1:${PORT}")
+(cd "$ROOT" && python3 -m proofops run plans/claw-way-deployment.local.json --target "http://127.0.0.1:${PORT}" --allow-local-targets)
 pause "4/4. Now break it the way production actually breaks"
 
 echo
@@ -51,7 +51,7 @@ echo " ACT 2 — HTTP 200, and a lie inside the body"
 echo "──────────────────────────────────────────────────────────────"
 sed -i 's/"status": "ok"/"status": "degraded"/' "$STATE"
 echo "  (injected: the app reports status=degraded; the endpoint still answers 200)"
-(cd "$ROOT" && python3 -m proofops run plans/claw-way-deployment.local.json --target "http://127.0.0.1:${PORT}") || true
+(cd "$ROOT" && python3 -m proofops run plans/claw-way-deployment.local.json --target "http://127.0.0.1:${PORT}" --allow-local-targets) || true
 pause "a status-code monitor calls that healthy. The receipt does not"
 
 echo
@@ -59,7 +59,7 @@ echo "────────────────────────�
 echo " ACT 3 — repair with ordinary tools, re-run the SAME plan"
 echo "──────────────────────────────────────────────────────────────"
 sed -i 's/"status": "degraded"/"status": "ok"/' "$STATE"
-(cd "$ROOT" && python3 -m proofops run plans/claw-way-deployment.local.json --target "http://127.0.0.1:${PORT}")
+(cd "$ROOT" && python3 -m proofops run plans/claw-way-deployment.local.json --target "http://127.0.0.1:${PORT}" --allow-local-targets)
 echo
 echo "  same plan revision in all three runs:"
 (cd "$ROOT" && python3 - <<'PY'

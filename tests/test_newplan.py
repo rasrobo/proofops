@@ -93,8 +93,8 @@ class TestGenerate(unittest.TestCase):
         plans = json.loads(mod._plans({}))["plans"]
         self.assertTrue(plans)
         for p in plans:
-            self.assertIn(p["run_mode"], ("read_only", "needs_allow_commands"))
-        self.assertTrue(any(p["run_mode"] == "needs_allow_commands" for p in plans),
+            self.assertIn(p["run_mode"], ("read_only", "needs_operator_approval"))
+        self.assertTrue(any(p["run_mode"] == "needs_operator_approval" for p in plans),
                         "at least one shipped plan uses commands")
 
 

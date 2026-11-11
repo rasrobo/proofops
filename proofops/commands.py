@@ -1,19 +1,23 @@
-"""Command checks — the one place ProofOps can cause side effects, so it is fenced twice.
+"""Command checks — the one place ProofOps can cause side effects, so it is fenced three times.
 
-A plan may only run a command that it lists **verbatim** in `allowed_commands`, and the
-CLI must be invoked with `--allow-commands`. Both must hold:
+A command runs only if all three hold:
 
-  * the plan author opted in by naming the exact command string
-  * the operator opted in for this run
+  * the caller opted into commands at all (CLI ``--allow-commands``; the plugin enables
+    the path and lets the approver below decide per command),
+  * the plan lists the exact command string verbatim in ``allowed_commands``,
+  * the operator approved this exact command — either it is on the operator-owned
+    allowlist, or an approval prompt showing the exact argv said yes. Without an
+    approver (the CLI) the first gate is the operator's approval.
 
-Neither alone is enough, so a plan copied from elsewhere cannot execute anything, and a
-careless `--allow-commands` cannot run a command the plan never declared. There is no
-shell: the command is split with shlex and executed without a shell, so pipes, `&&` and
-redirection are not available to a plan.
+There is no shell: the command is split with shlex and executed without one, so pipes,
+``&&`` and redirection are not available to a plan. And the child gets a minimal
+environment — PATH, HOME, LANG, plus only the variable names the operator lists — never
+the operator's full environment, which may hold credentials the model must not reach.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 import subprocess
@@ -22,15 +26,46 @@ import time
 TIMEOUT = 300
 MAX_OUTPUT = 4000
 
+_MINIMAL_ENV_KEYS = ("PATH", "HOME", "LANG")
+_ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _minimal_env(extra_names: tuple[str, ...] = ()) -> dict[str, str]:
+    """The environment a command check's child process gets.
+
+    PATH, HOME and LANG from the operator's environment (PATH is needed to resolve the
+    command itself), plus only the variable names the operator listed. Everything else —
+    API keys, tokens, session cookies — is not passed through.
+    """
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+        "HOME": os.environ.get("HOME", ""),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+    }
+    for name in extra_names:
+        if not _ENV_NAME.match(name) or name in env:
+            continue
+        if name in os.environ:
+            env[name] = os.environ[name]
+    return env
+
 
 class CommandPolicy:
-    """Set by the CLI before any check runs. Deny by default."""
+    """Set by the runner before any check runs. Deny by default."""
 
-    def __init__(self, enabled: bool = False, allowed: tuple[str, ...] = ()):
+    def __init__(self, enabled: bool = False, allowed: tuple[str, ...] = (),
+                 approver=None, env_vars: tuple[str, ...] = ()):
         self.enabled = enabled
         self.allowed = tuple(allowed)
+        # approver(command, argv) -> True/False/None. Called once per distinct command per
+        # run; the answer is cached on this policy instance, which the runner creates fresh
+        # for every execute(). None means "no per-command approval step" (the CLI, where
+        # --allow-commands already is the operator's approval).
+        self.approver = approver
+        self.env_vars = tuple(env_vars)
+        self._approved: dict[str, bool] = {}
 
-    def permits(self, command: str) -> tuple[bool, str]:
+    def permits(self, command: str, argv: list[str] | None = None) -> tuple[bool, str]:
         if not self.enabled:
             return False, "commands are disabled for this run (pass --allow-commands)"
         if command not in self.allowed:
@@ -38,7 +73,23 @@ class CommandPolicy:
                 "command is not declared in the plan's allowed_commands — add it verbatim "
                 "if this is intended"
             )
-        return True, ""
+        if self.approver is None:
+            return True, ""
+        if command in self._approved:
+            ok = self._approved[command]
+            return ((True, "") if ok else
+                    (False, "the operator did not approve this command"))
+        try:
+            approved = bool(self.approver(command, list(argv or [])))
+        except Exception:
+            approved = False
+        self._approved[command] = approved
+        if approved:
+            return True, ""
+        return False, (
+            "the operator did not approve this command — pre-approve it in the plugin "
+            "settings, or answer the approval prompt"
+        )
 
 
 POLICY = CommandPolicy()
@@ -92,6 +143,15 @@ def _extract(spec: dict, text: str, evidence: dict) -> dict:
 
 def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
     command = spec["command"]
+    try:
+        argv = shlex.split(command)
+    except ValueError as e:
+        # A command that does not parse is a defect in the plan, not a failed assertion.
+        return None, {"command": command, "status": "not_run",
+                      "refused": f"command does not parse: {e}"}
+    if not argv:
+        return None, {"command": command, "status": "not_run",
+                      "refused": "empty command"}
     # Two checks may assert different things about the same command. Run it once and
     # evaluate each check's assertions against the cached output — a 90-second migration
     # replay should not execute twice because it is asserted twice.
@@ -111,7 +171,7 @@ def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
         evidence["reused_from_cache"] = True
         return ok, _extract(spec, evidence["stdout_tail"], evidence)
 
-    permitted, why = POLICY.permits(command)
+    permitted, why = POLICY.permits(command, argv)
     if not permitted:
         # A refusal is NOT a failed assertion. Recording it as one writes "the deployed
         # configuration failed validation" into a receipt for a command that never ran —
@@ -119,11 +179,12 @@ def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
         # CLI exits 2 for it (the run could not be performed).
         return None, {"command": command, "status": "not_run", "refused": why}
 
-    argv = shlex.split(command)
+    env = _minimal_env(POLICY.env_vars)
     started = time.monotonic()
     try:
         proc = subprocess.run(  # noqa: S603 - argv list, no shell, allowlisted verbatim
-            argv, capture_output=True, text=True, timeout=spec.get("timeout", TIMEOUT)
+            argv, capture_output=True, text=True, timeout=spec.get("timeout", TIMEOUT),
+            env=env,
         )
         stdout, stderr, code = proc.stdout, proc.stderr, proc.returncode
         timed_out = False
@@ -146,6 +207,8 @@ def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
         "elapsed_ms": elapsed,
         "stdout_tail": stdout[-MAX_OUTPUT:],
         "stderr_tail": stderr[-MAX_OUTPUT:],
+        # Names only, never values: the receipt shows which variables the child could see.
+        "env_keys": sorted(env),
     }
     if "stdout_contains" in spec:
         evidence["expected_stdout_contains"] = spec["stdout_contains"]

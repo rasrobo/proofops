@@ -61,6 +61,8 @@ def cmd_run(args) -> int:
         rec, path = runner.execute(
             args.plan, args.target,
             allow_commands=args.allow_commands, out=args.out,
+            env_vars=tuple(args.env_var or ()),
+            allow_local_targets=args.allow_local_targets,
             key=integrity_mod.key_from(args.key_file),
         )
     except plan_mod.PlanError as e:
@@ -199,6 +201,12 @@ def main(argv=None) -> int:
     r.add_argument("--out", default="receipts")
     r.add_argument("--allow-commands", action="store_true",
                    help="permit checks to run commands the plan declares in allowed_commands")
+    r.add_argument("--env-var", action="append", default=[],
+                   help="extra environment variable name to pass to command checks "
+                        "(repeatable; PATH, HOME and LANG are always passed)")
+    r.add_argument("--allow-local-targets", action="store_true",
+                   help="permit HTTP checks against loopback/private addresses "
+                        "(a local dev server); refused by default")
     r.add_argument("--key-file", default=None,
                    help="sign the receipt with this key (or set PROOPS_SIGNING_KEY)")
     r.set_defaults(fn=cmd_run)
