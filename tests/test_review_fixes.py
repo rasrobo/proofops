@@ -191,7 +191,8 @@ class TestCommandApproval(unittest.TestCase):
         ok, ev = commands_mod.command_exit({"command": "echo hi"}, "local")
         self.assertIsNone(ok)
         self.assertEqual(ev["status"], "not_run")
-        self.assertIn("did not approve", ev["refused"])
+        self.assertIn("allowed_commands", ev["refused"], "the refusal must name the setting")
+        self.assertIn("how_to_fix", ev, "and carry the repair")
 
     def test_approver_that_raises_fails_closed(self):
         def boom(command, argv):
@@ -200,7 +201,8 @@ class TestCommandApproval(unittest.TestCase):
             enabled=True, allowed=("echo hi",), approver=boom))
         ok, ev = commands_mod.command_exit({"command": "echo hi"}, "local")
         self.assertIsNone(ok)
-        self.assertIn("did not approve", ev["refused"])
+        self.assertIn("allowed_commands", ev["refused"], "the refusal must name the setting")
+        self.assertIn("how_to_fix", ev, "and carry the repair")
 
     def test_approver_sees_the_exact_argv(self):
         seen = []
@@ -278,7 +280,7 @@ class TestPluginSurface(unittest.TestCase):
                 {"plan": str(_command_plan(d)), "target": "local"}))
         self.assertEqual(out["summary"]["verdict"], "INCOMPLETE")
         self.assertFalse(out["summary"]["claimable"])
-        self.assertIn("did not approve", out["not_verified"][0]["reason"])
+        self.assertIn("allowed_commands", out["not_verified"][0]["reason"])
 
     def test_a_pre_approved_command_runs(self):
         PLUGIN._CTX = _FakeCtx(settings={"allowed_commands": ["echo hi"]})

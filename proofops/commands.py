@@ -87,8 +87,8 @@ class CommandPolicy:
         if approved:
             return True, ""
         return False, (
-            "the operator did not approve this command — pre-approve it in the plugin "
-            "settings, or answer the approval prompt"
+            "the operator has not listed this command in "
+            "plugins.entries.proofops.settings.allowed_commands"
         )
 
 
@@ -177,7 +177,17 @@ def command_exit(spec: dict, target: str) -> tuple[bool | None, dict]:
         # configuration failed validation" into a receipt for a command that never ran —
         # the exact overclaim this tool exists to prevent. It is a third outcome, and the
         # CLI exits 2 for it (the run could not be performed).
-        return None, {"command": command, "status": "not_run", "refused": why}
+        return None, {
+            "command": command,
+            "status": "not_run",
+            "refused": why,
+            # A refusal is only actionable if the receipt says what would let it run. The old text
+            # pointed at an approval prompt that cannot appear inside a model tool call.
+            "how_to_fix": (
+                "add this exact command to plugins.entries.proofops.settings.allowed_commands "
+                "in the operator's config.yaml (inside Hermes), or pass --allow-commands on the CLI"
+            ),
+        }
 
     env = _minimal_env(POLICY.env_vars)
     started = time.monotonic()
