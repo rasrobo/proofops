@@ -44,6 +44,22 @@ def _consent_moment(args) -> None:
                   file=sys.stderr)
 
 
+def cmd_diff(args) -> int:
+    from . import diff as diff_mod
+    try:
+        old = diff_mod._load(args.before)
+        new = diff_mod._load(args.after)
+        result = diff_mod.compare(old, new, allow_revision_change=args.allow_revision_change)
+    except diff_mod.DiffError as e:
+        print(f"refused: {e}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(diff_mod.render(result))
+    return diff_mod.exit_code(result)
+
+
 def cmd_demo(args) -> int:
     from . import demo as demo_mod
     return demo_mod.run()
@@ -236,6 +252,14 @@ def main(argv=None) -> int:
     st = sub.add_parser("stats", help="what your own receipts add up to (local only)")
     st.add_argument("--receipts", default="receipts")
     st.set_defaults(fn=cmd_stats)
+
+    df = sub.add_parser("diff", help="compare two receipts of the same plan: what regressed, what was fixed")
+    df.add_argument("before")
+    df.add_argument("after")
+    df.add_argument("--allow-revision-change", action="store_true",
+                    help="compare even when the plan itself changed (usually misleading)")
+    df.add_argument("--json", action="store_true")
+    df.set_defaults(fn=cmd_diff)
 
     dm = sub.add_parser("demo", help="run a self-contained demo: a defect, caught, in 20 seconds")
     dm.set_defaults(fn=cmd_demo)

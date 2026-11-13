@@ -247,6 +247,31 @@ Exit codes are a contract: `0` all checks passed · `1` a check failed · `2` th
 performed (bad plan, an origin the plan never declared, a command the operator never authorised).
 A caller that ignores every line of output can still trust the exit code.
 
+## Did the repair work? `proofops diff`
+
+A receipt answers "what happened". The question people ask next is "is it better now, or did I break
+something else?" — and two runs of the *same* plan revision answer it without re-running anything:
+
+```
+$ proofops diff receipts/PO-…-c037.json receipts/PO-…-d34c.json
+claw-way-django deployment readiness (local fixture)  (sha256:eb01b6d8…)
+  before: PO-…-c037  PASS
+  after:  PO-…-d34c  FAIL
+
+  1 regressed, 3 unchanged
+
+  Regressions — these worked before and do not now:
+    [REGRESSED] health-reports-ok (was 'ok', now 'degraded')
+
+  What this does NOT prove: that the regression matters, or that the repair caused it — only that
+  this check answered differently on the second run.
+```
+
+Three deliberate choices: **a regression exits 1** (it is worse than nothing); **NOT RUN is its own
+state**, so a plan problem is never reported as a service regression; and **comparing different plan
+revisions is refused** unless you pass `--allow-revision-change`, because a changed check is not a
+changed result.
+
 ## Diagnostics — off by default
 
 It asks **once**, at the only moment you have a receipt worth counting — after your first run. One
@@ -395,6 +420,7 @@ value or a limitation afterwards is detectable. Supply a key (`--key-file` or
 
 ```bash
 python3 -m proofops verify receipts/PO-....json     # valid / tampered / unsealed / needs-key
+python3 -m proofops diff receipts/old.json receipts/new.json   # what regressed, what was fixed
 ```
 
 `0` valid · `1` edited or signed by a different key · `2` cannot verify. Sealing proves the file
@@ -492,8 +518,7 @@ seal check). A 20-case held-out eval — plans written after the code, not tuned
 precision 1.000 and recall 1.000.
 
 **Next, in order:** a plan linter that warns when a plan asserts less than its `proves` line
-implies; a `diff` command comparing two receipts of the same revision; and Postgres read-back as a
-first-class check rather than through `psql`.
+implies; and Postgres read-back as a first-class check rather than through `psql`.
 
 **Deliberately not built:** authenticated HTTP, browser journeys, plan composition, and any UI.
 ProofOps does not repair anything, and does not claim to.
