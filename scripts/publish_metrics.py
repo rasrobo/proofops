@@ -18,8 +18,8 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-HOP = ("ssh -o ConnectTimeout=15 rasrobo@gpu.sqs.chat "
-       "'ssh hub \"docker exec claw-way-django-web-1 cat /app/data/proofops_metrics.ndjson\"'")
+# One hop: the hub IS the box now (gpu was decommissioned; its DNS record removed 2026-11-11).
+HOP = "ssh -o ConnectTimeout=15 sqs.chat \"docker exec claw-way-django-web-1 cat /app/data/proofops_metrics.ndjson\""
 
 
 def latest_per_install(lines: list[str]) -> dict[str, dict]:
