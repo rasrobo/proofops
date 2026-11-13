@@ -1,0 +1,205 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  :root { font-size: 16px; }
+  body { margin: 0; color: var(--foreground); font-family: inherit; }
+  .sheet { width: 720px; }
+  h1 { font-size: 1.05rem; letter-spacing: .02em; margin: 0 0 .2rem; }
+  .sub { color: var(--muted-foreground); font-size: .78rem; margin: 0 0 1rem; }
+  .rule { display: flex; gap: .9rem; color: var(--muted-foreground); font-size: .72rem;
+          border-bottom: 1px solid var(--border); padding-bottom: .7rem; margin-bottom: .9rem; }
+  .rule b { color: var(--foreground); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 96px 1fr; gap: .9rem; align-items: start;
+         padding: .7rem 0; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: 0; }
+  svg { display: block; }
+  .wire { fill: none; stroke: var(--border); }
+  .wire-fill { fill: var(--card); stroke: var(--border); }
+  .cap { fill: var(--muted-foreground); }
+  .rec { fill: var(--accent); }
+  .n { font-size: .68rem; color: var(--muted-foreground); letter-spacing: .12em;
+       text-transform: uppercase; }
+  .t { font-size: .92rem; font-weight: 600; margin: .05rem 0 .15rem; }
+  .idea { font-size: .8rem; color: var(--muted-foreground); margin: 0 0 .35rem; }
+  .receipt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem;
+             color: var(--muted-foreground); background: var(--card);
+             border: 1px solid var(--border); border-radius: 4px; padding: .2rem .45rem;
+             display: inline-block; }
+  .tag { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase;
+         color: var(--accent); border: 1px solid var(--border); border-radius: 999px;
+         padding: .05rem .45rem; margin-left: .4rem; }
+  .keys { margin-top: .9rem; font-size: .72rem; color: var(--muted-foreground);
+          display: flex; gap: 1.1rem; flex-wrap: wrap; }
+</style></head>
+<body>
+<div class="sheet">
+  <h1>“I’m a real dev” — prompt contact sheet</h1>
+  <p class="sub">One puppet, one cricket, one palette. Art carries no text; the caption and the receipt are composited.</p>
+
+  <div class="rule">
+    <span><b>Top bar</b> = the boast (condensed caps)</span>
+    <span><b>Bottom bar</b> = the receipt (monospace, 60%)</span>
+    <span><b>Never</b> explain the joke</span>
+  </div>
+
+  <!-- 1 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: caption band on top, puppet mid-frame, receipt band at bottom">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <circle class="wire" cx="48" cy="52" r="13"/>
+      <rect class="wire" x="30" y="68" width="36" height="30" rx="2"/>
+      <line class="wire" x1="48" y1="20" x2="48" y2="39"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">01 · hero<span class="tag">main post</span></div>
+      <p class="t">By golly, I’m a real dev</p>
+      <p class="idea">Puppet at a mechanical keyboard, hand raised mid-boast, strings visible. 4:5.</p>
+      <code class="receipt">[FAIL] health-reachable · observed_status: null</code>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: profile puppet with a ruler-straight nose pointing at a terminal, caption and receipt bands">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <circle class="wire" cx="38" cy="52" r="12"/>
+      <line class="wire" x1="50" y1="52" x2="82" y2="52"/>
+      <rect class="wire" x="26" y="70" width="30" height="26" rx="2"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">02 · the nose</div>
+      <p class="t">“Shipped it.”</p>
+      <p class="idea">Profile, nose straight as a wooden ruler, pointing at a terminal. 1:1.</p>
+      <code class="receipt">INCOMPLETE · not_run: health-reachable, says-ok</code>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: small puppet presenting a huge blank scoreboard that fills the frame">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <rect class="wire" x="16" y="28" width="64" height="44" rx="2"/>
+      <line class="wire" x1="48" y1="28" x2="48" y2="72"/>
+      <line class="wire" x1="16" y1="50" x2="80" y2="50"/>
+      <circle class="wire" cx="48" cy="90" r="9"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">03 · the scoreboard</div>
+      <p class="t">“All tests passing.”</p>
+      <p class="idea">Huge blank board dominating; puppet tiny, presenting it. 4:5.</p>
+      <code class="receipt">Ran 0 tests in 0.00s · OK</code>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: puppet shaking hands and receiving an empty framed certificate">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <rect class="wire" x="52" y="40" width="32" height="24" rx="1"/>
+      <circle class="wire" cx="35" cy="52" r="11"/>
+      <rect class="wire" x="26" y="68" width="26" height="26" rx="2"/>
+      <line class="wire" x1="46" y1="58" x2="56" y2="58"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">04 · the certificate</div>
+      <p class="t">“Trust me, I tested it.”</p>
+      <p class="idea">Empty frame handed in from the edge of frame; puppet beaming. 1:1.</p>
+      <code class="receipt">claimable: false</code>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: three identical puppets at a boardroom table, all strings meeting above">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <line class="wire" x1="48" y1="24" x2="22" y2="46"/>
+      <line class="wire" x1="48" y1="24" x2="48" y2="46"/>
+      <line class="wire" x1="48" y1="24" x2="74" y2="46"/>
+      <circle class="wire" cx="22" cy="52" r="7"/><circle class="wire" cx="48" cy="52" r="7"/>
+      <circle class="wire" cx="74" cy="52" r="7"/>
+      <rect class="wire" x="14" y="64" width="68" height="8" rx="1"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">05 · the committee</div>
+      <p class="t">“We all agree it works.”</p>
+      <p class="idea">Three identical puppets voting; all strings meet at one point above. 16:9.</p>
+      <code class="receipt">not_verified: 3 checks could not be performed</code>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: puppet riding a child's rocking horse with a keyboard nailed to its neck">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <circle class="wire" cx="46" cy="42" r="9"/>
+      <rect class="wire" x="36" y="52" width="22" height="14" rx="2"/>
+      <path class="wire" d="M28 78 q18 -14 40 0"/>
+      <line class="wire" x1="28" y1="78" x2="28" y2="90"/><line class="wire" x1="68" y1="78" x2="68" y2="90"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">06 · vibe coding</div>
+      <p class="t">“Vibe coding since Tuesday.”</p>
+      <p class="idea">Rocking horse with a keyboard nailed to its neck; held like reins. 4:5.</p>
+      <code class="receipt">[NOT RUN] deploy-check: commands are disabled</code>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: macro shot of a cricket in a top hat holding a printed paper strip, puppet blurred behind">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <circle class="wire" cx="60" cy="44" r="20" stroke-dasharray="3 3"/>
+      <rect class="wire" x="22" y="46" width="20" height="26" rx="2"/>
+      <rect class="wire" x="14" y="40" width="34" height="4" rx="1"/>
+      <rect class="wire" x="14" y="62" width="34" height="4" rx="1"/>
+      <rect class="rec" x="9" y="96" width="78" height="16" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">07 · the cricket<span class="tag">introduces the product</span></div>
+      <p class="t">The turn</p>
+      <p class="idea">Macro: cricket in a top hat reading a paper strip, puppet out of focus behind. 1:1.</p>
+      <code class="receipt">[PASS] reachable &nbsp;·&nbsp; [FAIL] says-ok · observed: “degraded”</code>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="row">
+    <svg width="96" height="120" viewBox="0 0 96 120" role="img" aria-label="Composition: aged puppet in suspenders with a 1980s mobile phone, laptop pushed aside">
+      <rect class="wire-fill" x="1" y="1" width="94" height="118" rx="4"/>
+      <rect class="cap" x="9" y="10" width="78" height="9" rx="1"/>
+      <circle class="wire" cx="42" cy="46" r="11"/>
+      <rect class="wire" x="32" y="60" width="26" height="28" rx="2"/>
+      <rect class="wire" x="66" y="62" width="10" height="18" rx="1"/>
+      <line class="wire" x1="58" y1="70" x2="64" y2="70"/>
+      <rect class="rec" x="9" y="103" width="78" height="9" rx="1"/>
+    </svg>
+    <div>
+      <div class="n">08 · back in my day</div>
+      <p class="t">“Back in my day we tested it.”</p>
+      <p class="idea">Aged puppet, suspenders, 1980s phone, laptop pushed aside. 4:5.</p>
+      <code class="receipt">plan sha256:eb01b6d8… · unchanged since the claim</code>
+    </div>
+  </div>
+
+  <div class="keys">
+    <span>palette: cream · teal · rust</span>
+    <span>style: 1950s print ad, gouache + halftone</span>
+    <span>text: none in the art, always</span>
+    <span>seed: fixed per character</span>
+    <span>alt text: every image</span>
+  </div>
+</div>
+</body></html>

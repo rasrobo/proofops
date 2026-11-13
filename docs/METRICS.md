@@ -29,7 +29,7 @@ agent runs where nobody is at the keyboard. Nothing is enabled in that case; it 
 {
   "schema": 2,
   "install_id": "5e92b6c2-a3b2-4a5a-8265-0815357bb2df",
-  "version": "0.3.6",
+  "version": "0.6.0",
   "platform": "linux",
   "runs": 39,
   "plans": 7,

@@ -46,7 +46,7 @@ It shows a service answering 200 while reporting "degraded" — one check passes
 The numbers ship with the tool: a row-count plan catches 3 of 22 injected defects, checksums catch
 13 of 22 and raise 3 false alarms on files that were only reformatted.
 
-140 tests, CI green. Usage dashboard, failures included:
+181 tests, CI green. Usage dashboard, failures included:
 rasrobo.github.io/proofops/metrics
 @NousResearch catalogue PR: github.com/NousResearch/hermes-agent/pull/149625
 ```
@@ -70,7 +70,7 @@ rasrobo.github.io/proofops/metrics
 > `pipx install git+https://github.com/rasrobo/proofops && proofops demo` shows a 200 that lies in
 > about twenty seconds, then forges the receipt and shows verification catch it.
 >
-> 14 check types (HTTP, files, checksums, CSV, images, PDF, read-only SQLite), 140 tests, and a
+> 14 check types (HTTP, files, checksums, CSV, images, PDF, read-only SQLite), 181 tests, and a
 > benchmark with 22 injected defects that publishes its own false-alarm rate.
 
 ---

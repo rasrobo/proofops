@@ -117,7 +117,7 @@ readiness document.
 | real failure → repair → pass, same revision | done |
 | gates that cannot be bypassed | done, counter-tested |
 | limitations stated per plan | done, enforced at load |
-| the tool's own tests | **done — 116 tests** |
+| the tool's own tests | **done — 181 tests** |
 | published detection + false-alarm rates | **done — 3/22 · 12/22 · 13/22 · 3/22 · 2/22 · 4/22 by plan strength; 0 false alarms for structural, documents, records and the second dataset, 3 for strict** |
 | receipts cannot be edited undetected | **done — sealed sha256, optional HMAC, `verify` exits 0/1/2** |
 | receipts self-contained | done — plan body embedded |

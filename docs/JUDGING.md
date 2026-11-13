@@ -4,6 +4,8 @@ A judge with four days of entries and ten minutes should not have to read a 400-
 this. Every row below is a claim, the artefact that proves it, and one link. Nothing here is a
 promise about the future.
 
+**Status: merged.** `NousResearch/hermes-agent` PR #149625 is merged; the catalogue pins `5b57681`.
+
 ## 0. Open these three, in order
 
 | | |
@@ -25,7 +27,9 @@ promise about the future.
 
 | Claim | Evidence | Link |
 |---|---|---|
-| 140 tests, and they assert absence, not just happy paths | e.g. the socket is unreachable without consent; the payload cannot carry a hostname; a refused prompt is never re-asked | `tests/` |
+| 181 tests, and they assert absence, not just happy paths | e.g. the socket is unreachable without consent; the payload cannot carry a hostname; a refused prompt is never re-asked | `tests/` |
+| A held-out eval, written after the code | 20 fresh cases (10 true claims, 10 false): **precision 1.000, recall 1.000, 20/20** — `bench/EVAL.md` | `bench/run_eval.py` |
+| It survived maintainer review | Two rounds on PR #149625: command gating, minimal child env, SSRF + DNS pinning, confined receipts, and deny-by-default file reads — all fixed, each with a test | `tests/test_review_fixes.py` |
 | The benchmark publishes its own misses | 22 injected defects over two public datasets, 5 benign changes, 6 plan strengths. Best strict plan: 13/22 caught **and 3 false alarms declared** | `bench/latest.json` |
 | A third outcome exists | `NOT RUN` is reported as `NOT RUN`, never a green tick; exit code 2 means nothing was tested | `proofops/receipt.py` |
 | Editing a receipt is detectable | The demo flips a failed check to passed and `verify` reports `tampered` | `proofops demo` |

@@ -1,23 +1,23 @@
 {
-  "generated_at": "2026-11-07T01:04:44+00:00",
+  "generated_at": "2026-11-13T22:30:45+00:00",
   "installs": 1,
-  "runs": 39,
+  "runs": 45,
   "checks": {
-    "pass": 120,
-    "fail": 12,
+    "pass": 131,
+    "fail": 25,
     "not_run": 4
   },
-  "total_checks": 136,
-  "pass_rate": 88.2,
+  "total_checks": 160,
+  "pass_rate": 81.9,
   "by_type": {
     "http_json_field": {
-      "pass": 81,
-      "fail": 9,
+      "pass": 89,
+      "fail": 19,
       "not_run": 0
     },
     "http_status": {
-      "pass": 30,
-      "fail": 0,
+      "pass": 33,
+      "fail": 3,
       "not_run": 0
     },
     "command_exit": {
@@ -38,8 +38,8 @@
   },
   "by_family": {
     "web & apis": {
-      "pass": 111,
-      "fail": 9,
+      "pass": 122,
+      "fail": 22,
       "not_run": 0
     },
     "builds & commands": {
@@ -59,7 +59,7 @@
     }
   },
   "versions": {
-    "0.3.9": 1
+    "0.6.0": 1
   },
   "platforms": {
     "linux": 1

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProofOps meme compositor — caption on top, receipt at the bottom</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #14161a; color: #e9e4d8;
+  }
+  .wrap { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .panel { width: 340px; }
+  h1 { font-size: 1rem; letter-spacing: .02em; margin: 0 0 4px; }
+  p.lede { margin: 0 0 18px; font-size: .78rem; line-height: 1.45; color: #9aa0a6; }
+  label { display: block; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+          color: #9aa0a6; margin: 14px 0 5px; }
+  input[type="text"], select, input[type="file"] {
+    width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #2f343a;
+    background: #1b1e22; color: #e9e4d8; font-size: .85rem;
+  }
+  input[type="text"].mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                            font-size: .78rem; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
+  button {
+    margin-top: 18px; width: 100%; padding: 11px 14px; border-radius: 6px; border: 0;
+    background: #e9e4d8; color: #14161a; font-size: .82rem; font-weight: 650;
+    letter-spacing: .04em; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: #9aa0a6; border: 1px solid #2f343a;
+                 font-weight: 500; }
+  canvas { display: block; border-radius: 8px; box-shadow: 0 18px 40px rgba(0,0,0,.5); }
+  .meta { font-size: .7rem; color: #6f757b; margin-top: 10px; line-height: 1.5; }
+  .dims { font-family: ui-monospace, Menlo, monospace; color: #9aa0a6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Meme compositor</h1>
+    <p class="lede">Drop the generated art, type the caption and the receipt line, export a
+      2× PNG. The image model never spells a word — that is the point.</p>
+
+    <label for="art">Art (PNG/JPG — generated with no text)</label>
+    <input id="art" type="file" accept="image/*">
+
+    <label for="cap">Caption — the boast</label>
+    <input id="cap" type="text" value="BY GOLLY, I'M A REAL DEV">
+
+    <label for="rec">Receipt — one real line from the tool</label>
+    <input id="rec" type="text" class="mono" value="[FAIL] health-reachable · observed_status: null">
+
+    <div class="row2">
+      <div>
+        <label for="ratio">Ratio</label>
+        <select id="ratio">
+          <option value="4:5" selected>4:5 — 1080×1350</option>
+          <option value="1:1">1:1 — 1080×1080</option>
+          <option value="16:9">16:9 — 1600×900</option>
+        </select>
+      </div>
+      <div>
+        <label for="pos">Caption</label>
+        <select id="pos">
+          <option value="top" selected>top</option>
+          <option value="bottom">bottom</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="save">Save PNG (2×)</button>
+    <button id="sample" class="ghost">Use a placeholder frame</button>
+
+    <p class="meta">Bands are fixed-height so one palette holds across the set:
+      caption <span class="dims" id="bandcap">—</span> ·
+      receipt <span class="dims" id="bandrec">—</span>.
+      Caption type is condensed caps; receipt type is monospace at 60% — a terminal, not a poster.</p>
+  </div>
+
+  <div>
+    <canvas id="c" width="1080" height="1350"></canvas>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const art = new Image();
+  let haveArt = false;
+
+  const CREAM = '#f2e8d5', INK = '#12333a', TERM = '#111417', MINT = '#8fe3b0', RUST = '#a8442a';
+
+  const SIZES = { '4:5': [1080, 1350], '1:1': [1080, 1080], '16:9': [1600, 900] };
+
+  function fit(text, font, max) {
+    ctx.font = font;
+    if (ctx.measureText(text).width <= max) return text;
+    let cut = text;
+    while (cut.length > 4 && ctx.measureText(cut + '…').width > max) cut = cut.slice(0, -1);
+    return cut + '…';
+  }
+
+  function drawPlaceholder(w, h) {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#2a4a52'); g.addColorStop(1, '#7d3f2b');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(242,232,213,.28)'; ctx.lineWidth = 2;
+    ctx.setLineDash([14, 12]);
+    ctx.strokeRect(w * .12, h * .16, w * .76, h * .66); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(242,232,213,.7)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `600 ${Math.round(w * .026)}px system-ui, sans-serif`;
+    ctx.fillText('DROP THE GENERATED ART HERE', w / 2, h / 2);
+    ctx.font = `${Math.round(w * .019)}px ui-monospace, Menlo, monospace`;
+    ctx.fillText('1950s gouache · cream / teal / rust · no text in the image', w / 2, h / 2 + w * .045);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  function drawArt(w, h) {
+    if (!haveArt) { drawPlaceholder(w, h); return; }
+    const s = Math.max(w / art.width, h / art.height);        // cover
+    const dw = art.width * s, dh = art.height * s;
+    ctx.drawImage(art, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
+  function wrap(text, font, max) {
+    ctx.font = font;
+    const words = text.split(/\s+/);
+    const lines = [];
+    let line = '';
+    for (const word of words) {
+      const probe = line ? line + ' ' + word : word;
+      if (ctx.measureText(probe).width > max && line) { lines.push(line); line = word; }
+      else line = probe;
+    }
+    if (line) lines.push(line);
+    return lines.slice(0, 3);
+  }
+
+  function render() {
+    const [w, h] = SIZES[document.getElementById('ratio').value];
+    canvas.width = w; canvas.height = h;
+
+    const capSize = Math.round(Math.min(w, h) * 0.062);
+    const capFont = `800 ${capSize}px "Arial Narrow", "Helvetica Neue Condensed", Impact, system-ui, sans-serif`;
+    const recSize = Math.round(Math.min(w, h) * 0.026);
+    const recFont = `500 ${recSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+
+    const capText = document.getElementById('cap').value.toUpperCase();
+    const recText = document.getElementById('rec').value;
+    const capOnTop = document.getElementById('pos').value === 'top';
+
+    drawArt(w, h);
+
+    // Caption band
+    const pad = Math.round(w * 0.045);
+    ctx.font = capFont;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(capSize * 0.03)}px`;
+    const capLines = wrap(capText, capFont, w - pad * 2);
+    const capLineH = capSize * 1.06;
+    const capBandH = Math.round(capLines.length * capLineH + capSize * 0.52);
+
+    // Receipt band
+    ctx.font = recFont;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    const recLines = wrap(recText, recFont, w - pad * 2);
+    const recLineH = recSize * 1.45;
+    const recBandH = Math.round(recLines.length * recLineH + recSize * 1.0);
+
+    const capY = capOnTop ? 0 : h - capBandH;
+    const recY = capOnTop ? h - recBandH : 0;
+
+    ctx.fillStyle = CREAM;
+    ctx.fillRect(0, capY, w, capBandH);
+    ctx.fillStyle = INK;
+    ctx.font = capFont;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(capSize * 0.03)}px`;
+    ctx.textBaseline = 'top';
+    capLines.forEach((line, i) => {
+      ctx.fillText(line, pad, capY + capSize * 0.26 + i * capLineH);
+    });
+
+    ctx.fillStyle = TERM;
+    ctx.fillRect(0, recY, w, recBandH);
+    ctx.fillStyle = MINT;
+    ctx.globalAlpha = 0.92;
+    ctx.font = recFont;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    recLines.forEach((line, i) => {
+      ctx.fillText(line, pad, recY + recSize * 0.85 + i * recLineH);
+    });
+    ctx.globalAlpha = 1;
+
+    // A single rust hairline keeps the two bands from reading as separate pictures.
+    ctx.fillStyle = RUST;
+    ctx.fillRect(0, capY + capBandH - 3, w, 3);
+    ctx.textBaseline = 'alphabetic';
+
+    document.getElementById('bandcap').textContent = `${capBandH}px`;
+    document.getElementById('bandrec').textContent = `${recBandH}px`;
+  }
+
+  document.getElementById('art').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    art.onload = () => { haveArt = true; URL.revokeObjectURL(url); render(); };
+    art.src = url;
+  });
+  ['cap', 'rec', 'ratio', 'pos'].forEach((id) =>
+    document.getElementById(id).addEventListener('input', render));
+  document.getElementById('sample').addEventListener('click', () => {
+    haveArt = false; document.getElementById('art').value = ''; render();
+  });
+  document.getElementById('save').addEventListener('click', () => {
+    const [w, h] = SIZES[document.getElementById('ratio').value];
+    // Export at 2× the feed size for crisp text: redraw on an offscreen canvas.
+    const out = document.createElement('canvas');
+    out.width = w * 2; out.height = h * 2;
+    const octx = out.getContext('2d');
+    octx.drawImage(canvas, 0, 0, w, h, 0, 0, out.width, out.height);
+    const a = document.createElement('a');
+    a.download = `proofops-meme-${document.getElementById('ratio').value.replace(':', 'x')}.png`;
+    a.href = out.toDataURL('image/png');
+    a.click();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
